@@ -12,12 +12,12 @@ import wildcardMatch from "wildcard-match";
 export function createParameters(parameters_list, checkpoint_path) {
     /** @type {Omit<ParameterConfig, 'pattern'>} */
     const curr_params = {
-        exclude: false,
         workflow: "",
         width: 896,
         height: 1152,
+        seed: 42,
         styles: [],
-        prompts: [],
+        prompt_ids: [],
     };
 
     for(const parameters of parameters_list) {
@@ -62,4 +62,24 @@ export function mergeParameters(target, patch) {
             target[k] = v;
         }
     }
+}
+
+/**
+ * Change the checkpoint name into directory names.
+ * @param {string} checkpoint
+ * @returns {string[]}
+ */
+export function checkpointToDirNames(checkpoint) {
+    checkpoint = checkpoint.replace(/\.[a-z]+$/i, "");
+
+    const dir_names = [];
+
+    for(let component of checkpoint.split(/[\\/]/)) {
+        component = component.toLowerCase().trim().replace(/[^a-z0-9\-]+/g, '_');
+        if(!component) continue;
+
+        dir_names.push(component);
+    }
+
+    return dir_names;
 }

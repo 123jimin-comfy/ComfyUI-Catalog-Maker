@@ -14,7 +14,8 @@
     "@stable-canvas/comfyui-client": "^1.4.1",
     "argparse": "^2.0.1",
     "toml": "^3.0.0",
-    "wildcard-match": "^5.1.4"
+    "wildcard-match": "^5.1.4",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "@types/argparse": "^2.0.17"

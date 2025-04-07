@@ -16,12 +16,27 @@ host = "comfy-ui.example.com:8188"
 username = "alex"
 password = "hunter2"
 
-[[parameters]]
-pattern = "*"
-width = 896
-height = 1152
+# List of prompts to be referenced
+[[prompts]]
+id = "simple"
+prompt = "1girl, looking at viewer, outdoors, casual"
 
 [[parameters]]
-pattern = "sdxl/*"
-styles = ["sdxl"]
+pattern = "**"
+width = 896
+height = 1152
+seed = 42
+prompt_ids = ["simple"]
+
+[[parameters]]
+pattern = "sdxl*/**"
+workflow = "sdxl"
+
+[[parameters]]
+pattern = "sdxl-il/**"
+styles = ["Pony_Default"]
+
+[[parameters]]
+pattern = "sdxl-pony/**"
+styles = ["Pony_Default"]
 ```

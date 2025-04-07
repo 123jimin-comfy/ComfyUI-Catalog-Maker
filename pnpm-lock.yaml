@@ -20,6 +20,9 @@ importers:
       wildcard-match:
         specifier: ^5.1.4
         version: 5.1.4
+      ws:
+        specifier: ^8.18.1
+        version: 8.18.1
     devDependencies:
       '@types/argparse':
         specifier: ^2.0.17
@@ -42,6 +45,18 @@ packages:
   wildcard-match@5.1.4:
     resolution: {integrity: sha512-wldeCaczs8XXq7hj+5d/F38JE2r7EXgb6WQDM84RVwxy81T/sxB5e9+uZLK9Q9oNz1mlvjut+QtvgaOQFPVq/g==}
 
+  ws@8.18.1:
+    resolution: {integrity: sha512-RKW2aJZMXeMxVpnZ6bck+RswznaxmzdULiBr6KY7XkTnW8uvt0iT9H5DkHUChXrc+uurzwa0rVI16n/Xzjdz1w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
 snapshots:
 
   '@stable-canvas/comfyui-client@1.4.1': {}
@@ -53,3 +68,5 @@ snapshots:
   toml@3.0.0: {}
 
   wildcard-match@5.1.4: {}
+
+  ws@8.18.1: {}

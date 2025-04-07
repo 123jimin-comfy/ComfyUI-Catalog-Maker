@@ -8,7 +8,8 @@ import { WORKFLOWS } from "./index.mjs";
 /**
  * 
  * @param {Client} client 
- * @param {ImageGenerationParams} params 
+ * @param {ImageGenerationParams} params
+ * @returns {Promise<Buffer>}
  */
 export async function generate(client, params) {
     const workflowFunc = WORKFLOWS[params.workflow_id];
@@ -38,5 +39,16 @@ export async function generate(client, params) {
     await instance.enqueue();
 
     const result = await instance.wait();
-    console.log(result);
+    if(result.images.length === 0) throw new Error("No images generated");
+
+    const image = result.images[0];
+
+    switch(image.type) {
+        case 'buff': return Buffer.from(image.data);
+        case 'url': {
+            const res = await fetch(image.data, {headers: client.apiHeaders()});
+            return Buffer.from(await res.arrayBuffer());
+        }
+        default: throw new Error(`Unknown image type: ${image.type}`);
+    }
 }
