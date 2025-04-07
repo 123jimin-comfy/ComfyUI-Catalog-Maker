@@ -40,5 +40,26 @@ export function createParameters(parameters_list, checkpoint_path) {
  * @param {Partial<ParameterConfig>} patch 
  */
 export function mergeParameters(target, patch) {
+    for(const [k, v] of Object.entries(patch)) {
+        if(k === 'pattern') continue;
 
+        if(Array.isArray(v)) {
+            const orig = target[k];
+
+            /** @type {string[]} */
+            const merged = [];
+
+            for(const vi of v) {
+                if(vi === '*') {
+                    merged.push(...orig);
+                } else {
+                    merged.push(vi);
+                }
+            }
+
+            target[k] = merged;
+        } else {
+            target[k] = v;
+        }
+    }
 }

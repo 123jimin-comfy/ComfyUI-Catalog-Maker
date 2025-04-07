@@ -11,6 +11,7 @@ import toml from 'toml';
 
 import {Client} from "@stable-canvas/comfyui-client";
 import { BasicAuthPlugin, generate } from "../comfy-ui/index.mjs";
+import { createParameters } from "../config.mjs";
 
 const parser = new ArgumentParser({
     description: "A tool for creating and updating sample images for T2I (text-to-image) models.",
@@ -46,8 +47,10 @@ main(parser.parse_args());
  * @param {Config} config 
  */
 async function render(config) {
-    const {comfy: comfy_config} = config;
+    const {comfy: comfy_config, parameters: parameter_configs} = config;
     if(!comfy_config) throw new Error("ComfyUI config must be provided!");
+    if(!parameter_configs) throw new Error("Parameter config must be provided!");
+
 
     const client = new Client({
         ssl: true,
@@ -65,8 +68,16 @@ async function render(config) {
     client.connect();
 
     const models = await client.getSDModels();
-    
+
+    for(const checkpoint of models) {
+        const params = createParameters(parameter_configs, checkpoint);
+        if(params.exclude) continue;
+
+        console.log(checkpoint, params);
+    }
+
     // test
+    /*
     await generate(client, {
         checkpoint: "sdxl-pony/anime/ArteMix-pony1.safetensors",
         workflow_id: 'sdxl',
@@ -86,5 +97,6 @@ async function render(config) {
             scheduler: "karras",
             denoise: 1.0,
         },
-    });
+    })x;
+    */
 }
