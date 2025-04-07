@@ -1,6 +1,7 @@
 //@ts-check
 
 /** @import {Config} from "../config"; */
+/** @import {ImageGenerationParams} from "../comfy-ui/workflow/type" */
 
 import fs from "node:fs/promises";
 import path from 'node:path';
@@ -71,32 +72,34 @@ async function render(config) {
 
     for(const checkpoint of models) {
         const params = createParameters(parameter_configs, checkpoint);
-        if(params.exclude) continue;
+        if(params.exclude || params.prompts.length === 0) continue;
 
-        console.log(checkpoint, params);
+        console.log(`Rendering: ${checkpoint}`);
+
+        for(const prompt of params.prompts) {
+            /** @type {ImageGenerationParams} */
+            const gen_params = {
+                checkpoint,
+                workflow_id: params.workflow,
+
+                width: params.width, height: params.height,
+                prompt: {
+                    style: params.styles,
+                    positive: prompt,
+                    negative: "",
+                    loras: [],
+                },
+                sampler: {
+                    seed: 0|Math.random()*(2**31),
+                    steps: 20,
+                    cfg: 7.5,
+                    sampler_name: "dpmpp_sde_gpu",
+                    scheduler: "karras",
+                    denoise: 1.0,
+                },
+            };
+
+            await generate(client, gen_params);
+        }
     }
-
-    // test
-    /*
-    await generate(client, {
-        checkpoint: "sdxl-pony/anime/ArteMix-pony1.safetensors",
-        workflow_id: 'sdxl',
-
-        width: 1024, height: 1024,
-        prompt: {
-            style: [],
-            positive: "1girl, looking at viewer, outdoors, casual",
-            negative: "",
-            loras: [],
-        },
-        sampler: {
-            seed: 0|Math.random()*(2**31),
-            steps: 20,
-            cfg: 7.5,
-            sampler_name: "dpmpp_sde_gpu",
-            scheduler: "karras",
-            denoise: 1.0,
-        },
-    })x;
-    */
 }

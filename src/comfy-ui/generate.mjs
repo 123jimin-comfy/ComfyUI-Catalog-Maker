@@ -14,8 +14,6 @@ export async function generate(client, params) {
     const workflowFunc = WORKFLOWS[params.workflow_id];
     if(!workflowFunc) throw new Error(`Unknown workflow_id: ${params.workflow_id}`);
 
-    console.log("generate", params);
-
     const [workflow] = workflowFunc(params);
     const instance = workflow.instance(client, {
         resolver(acc, output, {client}) {
@@ -36,12 +34,9 @@ export async function generate(client, params) {
             }))};
         },
     });
+
     await instance.enqueue();
-    
-    console.log("Waiting...");
 
     const result = await instance.wait();
-
-    console.log("Done!");
     console.log(result);
 }
