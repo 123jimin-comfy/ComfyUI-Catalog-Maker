@@ -1,7 +1,16 @@
 {
     "cSpell.words": [
+        "Arte",
+        "ascore",
+        "ckpt",
         "comfyui",
+        "denoise",
+        "dpmpp",
         "Jimin",
-        "sdxl"
+        "karras",
+        "loras",
+        "safetensors",
+        "sdxl",
+        "subparsers"
     ]
 }
