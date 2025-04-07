@@ -4,6 +4,11 @@ This is a tool for creating and updating sample images for T2I (text-to-image) m
 
 ## How to Use
 
+```bash
+npm start render -c config.toml -o render
+npm start create-index -c config.toml -o catalog.json
+```
+
 Here's an example config file:
 
 ```toml
