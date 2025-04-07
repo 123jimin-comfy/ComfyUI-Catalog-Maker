@@ -1,9 +1,9 @@
 {
   "name": "comfyui-checkpoint-catalog",
   "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
+  "description": "A tool for creating and updating sample images for T2I (text-to-image) models.",
   "scripts": {
+    "start": "node src/bin/main.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -11,6 +11,12 @@
   "license": "MIT",
   "packageManager": "pnpm@10.7.1",
   "dependencies": {
-    "toml": "^3.0.0"
+    "@stable-canvas/comfyui-client": "^1.4.1",
+    "argparse": "^2.0.1",
+    "toml": "^3.0.0",
+    "wildcard-match": "^5.1.4"
+  },
+  "devDependencies": {
+    "@types/argparse": "^2.0.17"
   }
 }
