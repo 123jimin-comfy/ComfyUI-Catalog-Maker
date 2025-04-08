@@ -1,7 +1,6 @@
 node_modules/
 
-/public/
-/render/
-/config.toml
+/config/
+/output/
 
 /catalog.json

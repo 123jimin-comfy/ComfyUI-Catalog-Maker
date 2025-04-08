@@ -1,7 +1,10 @@
 {
-  "name": "comfyui-checkpoint-catalog",
+  "name": "comfyui-catalog-maker",
   "version": "0.0.1",
   "description": "A tool for creating and updating sample images for T2I (text-to-image) models.",
+  "bin": {
+    "make-comfy-catalog": "src/bin/main.mjs"
+  },
   "scripts": {
     "start": "node src/bin/main.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"

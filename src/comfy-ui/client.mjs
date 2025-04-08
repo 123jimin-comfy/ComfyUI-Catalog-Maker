@@ -1,10 +1,11 @@
 //@ts-check
 
-/** @import {ComfyUIConfig} from "./config" */
+/** @import {ComfyUIConfig} from "../config/backend" */
 
+export { Client } from "@stable-canvas/comfyui-client";
 import { Client } from "@stable-canvas/comfyui-client";
 import { WebSocket as WS } from "ws";
-import { BasicAuthPlugin} from "./comfy-ui/index.mjs";
+import { BasicAuthPlugin} from "./index.mjs";
 
 /**
  * @param {ComfyUIConfig} config 

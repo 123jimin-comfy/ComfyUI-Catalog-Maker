@@ -1,23 +1,31 @@
 //@ts-check
 
-/** @import {ParameterConfig} from "./config" */
+/** @import {ParameterConfig} from "./parameter" */
 
 import wildcardMatch from "wildcard-match";
 
 /**
- * @param {Array<Partial<ParameterConfig>>} parameters_list 
  * @param {string} checkpoint_path
- * @returns {Omit<ParameterConfig, 'pattern'>}
+ * @param {Array<Partial<ParameterConfig & {pattern?: string}>>} parameters_list 
+ * @returns {ParameterConfig}
  */
-export function createParameters(parameters_list, checkpoint_path) {
-    /** @type {Omit<ParameterConfig, 'pattern'>} */
+export function createParameters(checkpoint_path, ...parameters_list) {
+    /** @type {ParameterConfig} */
     const curr_params = {
         workflow: "",
+        
+        checkpoint: checkpoint_path,
+        prompt: "",
+
         width: 896,
         height: 1152,
+
         seed: 42,
-        styles: [],
-        prompt_ids: [],
+        steps: 20,
+        cfg: 7.5,
+        sampler_name: "dpmpp_sde_gpu",
+        scheduler: "karras",
+        denoise: 1.0,
     };
 
     for(const parameters of parameters_list) {
