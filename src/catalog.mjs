@@ -1,7 +1,7 @@
 //@ts-check
 
 /** @import {BackendConfig} from "./config/backend" */
-/** @import {CatalogConfig, CatalogAxisConfig} from "./config/catalog" */
+/** @import {CatalogConfig, CatalogAxisConfig, AxisValue} from "./config/catalog" */
 /** @import {ParameterConfig} from "./config/parameter" */
 
 /** @import {ImageGenerationParams} from "./comfy-ui/workflow/type" */
@@ -12,7 +12,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { createClient, generate, Client } from "./comfy-ui/index.mjs";
-import { createParameters } from "./config/index.mjs";
+import { createParameters, getCatalogAxisValues } from "./config/index.mjs";
+import { fileExists, toFileName } from "./util.mjs";
 
 /**
  * Generates the catalog, and saves the rendered images and metadata to the output path.
@@ -25,10 +26,13 @@ export async function generateCatalog(backend_config, catalog_config, args) {
     if(!backend_config.comfy) throw new Error(`Backend config must include configs for the ComfyUI backend!`);
 
     if(args.reset) {
-        // TODO: reset output directory
+        console.warn(`Resetting output directory: ${args.output_dir}`);
+        await fs.rm(args.output_dir, { recursive: true, force: true });
     }
 
     const client = createClient(backend_config.comfy);
+
+    /** @type {AxisValue[][]} */
     const axis_values_list = [];
 
     const global_random_seed = 0|Math.random()*(2**31);
@@ -37,7 +41,10 @@ export async function generateCatalog(backend_config, catalog_config, args) {
         if(!params.checkpoint) continue;
         if(!params.workflow) continue;
 
-        const log_str = `checkpoint=${params.checkpoint} indices=[${indices.map(x => (x+1).toString()).join(',')}]`;
+        const axis_value_ids = axis_values_list
+            .map((axis_values, i) => axis_values[indices[i]])
+            .filter((_, i) => catalog_config.axes[i].target !== 'checkpoint')
+            .map((axis_value) => axis_value.id);
 
         /** @type {ImageGenerationParams} */
         const gen_params = {
@@ -61,7 +68,7 @@ export async function generateCatalog(backend_config, catalog_config, args) {
             },
         };
 
-        const output_file_path = path.join(args.output_dir, ...getImagePath(indices.filter((_, i) => catalog_config.axes[i].target !== 'checkpoint'), gen_params));
+        const output_file_path = path.join(args.output_dir, ...getImagePath(axis_value_ids, gen_params));
         const output_image_path = output_file_path + '.png';
         const output_json_path = output_file_path + '.json';
 
@@ -69,7 +76,7 @@ export async function generateCatalog(backend_config, catalog_config, args) {
         await fs.mkdir(path.dirname(output_file_path), { recursive: true });
 
         if(!args.force && await fileExists(output_image_path)) {
-            console.log(`Skipping: ${log_str}`);
+            console.log(`Skipping: ${output_image_path}`);
             continue;
         }
 
@@ -85,48 +92,12 @@ export async function generateCatalog(backend_config, catalog_config, args) {
 }
 
 /**
- * Returns the values for the given axis config.
- * 
- * @param {Client} client 
- * @param {CatalogAxisConfig} axis_config
- * @returns {Promise<unknown[]>}
- */
-async function getCatalogAxisValues(client, axis_config) {
-    if(axis_config.target === 'checkpoint' && !axis_config.range) {
-        // Enumerate all checkpoints.
-
-        return await client.getSDModels();
-    }
-
-    if(!axis_config.range) return [];
-
-    switch(axis_config.range.type) {
-        case 'enum': return axis_config.range.values;
-        case 'float': {
-            const values = [];
-            const delta = (axis_config.range.max - axis_config.range.min) / axis_config.range.num_steps;
-            for(let i = 0; i <= axis_config.range.num_steps; i++) {
-                if(i === axis_config.range.num_steps ) {
-                    values.push(axis_config.range.max);
-                } else {
-                    values.push(axis_config.range.min + i * delta);
-                }
-            }
-
-            return values;
-        }
-    }
-
-    throw new Error(`Unknown range type: ${(/** @type {{type: string}} */ (axis_config.range)).type}`);
-}
-
-/**
  * Enumerates all possible image generation parameters for the given backend and catalog configs.
  * 
  * @param {Client} client
  * @param {BackendConfig} backend_config
  * @param {CatalogConfig} catalog_config
- * @param {unknown[][]} [out_axis_values_list] If provided, the axis values will be written to this array.
+ * @param {AxisValue[][]} [out_axis_values_list] If provided, the axis values will be written to this array.
  * @returns {AsyncGenerator<[indices: number[], params: ParameterConfig]>}
  */
 async function* enumerateImageGeneration(client, backend_config, catalog_config, out_axis_values_list) {
@@ -142,11 +113,21 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
     if(axes.length === 0) return;
     if(axis_values_list.some(values => values.length === 0)) return;
 
+    /** @type {string | null} */
+    let default_checkpoint = null;
+    for(const parameters of (catalog_config.parameters ?? [])) {
+        if(!parameters.pattern && parameters.checkpoint) {
+            default_checkpoint = parameters.checkpoint;
+            break;
+        }
+    }
+
     do {
         const axis_values = axis_indices.map((index, i) => axis_values_list[i][index]);
 
         // Determine the checkpoint to be used.
-        let checkpoint = "";
+        let checkpoint = default_checkpoint ?? "";
+
         for(let i=0; i<axes.length; ++i) {
             if(axes[i].target === "checkpoint") {
                 checkpoint = `${axis_values[i]}`;
@@ -201,50 +182,15 @@ function advanceAxisIndices(axis_indices, axis_values_list) {
 /**
  * Returns the path to the image file for the given checkpoint and generation parameters.
  * 
- * @param {number[]} axis_indices 
+ * @param {string[]} axis_value_ids 
  * @param {ImageGenerationParams} gen_params
  * @return {string[]} The path to the image file.
  */
-function getImagePath(axis_indices, gen_params) {
+function getImagePath(axis_value_ids, gen_params) {
     const checkpoint_dir = toFileName(gen_params.checkpoint);
 
     return [
         checkpoint_dir,
-        axis_indices.length === 0 ? 'image' : axis_indices.join('_'),
+        axis_value_ids.length === 0 ? 'image' : axis_value_ids.join('_'),
     ];
-}
-
-/**
- * Check if a file exists.
- * @param {string} file_path 
- * @returns {Promise<boolean>}
- */
-async function fileExists(file_path) {
-    try {
-        await fs.access(file_path);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-/**
- * Makes the name into a valid file name.
- * 
- * @param {string} name 
- */
-function toFileName(name) {
-    // Removes file extension.
-    name = name.replace(/\.[^/.]+$/, "");
-
-    const dir_names = [];
-
-    for(let component of name.split(/[\\/]+/)) {
-        component = component.trim().toLowerCase().replace(/[^a-z0-9\-]+/g, '-');
-        if(!component) continue;
-
-        dir_names.push(component);
-    }
-
-    return dir_names.join('_');
 }

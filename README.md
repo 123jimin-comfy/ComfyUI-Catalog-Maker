@@ -54,6 +54,10 @@ This is an example for creating a 2D grid of cfg/steps.
 id = "cfg_steps"
 name = "CFG x Steps"
 
+[[parameters]]
+checkpoint = "sdxl/foo.safetensors"
+prompt = "1girl, solo, outdoors, casual, looking at viewer, full body"
+
 [[axes]]
 id = "cfg"
 name = "CFG"
@@ -73,8 +77,4 @@ target = "steps"
 [axes.range]
 type = "enum"
 values = [1, 2, 4, 8, 16, 32, 64]
-
-[[parameters]]
-checkpoint = "sdxl/foo.safetensors"
-prompt = "1girl, solo, outdoors, casual, looking at viewer, full body"
 ```

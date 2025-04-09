@@ -1,3 +1,5 @@
+import {PatternMatchedParameterConfig} from "./parameter";
+
 export interface FloatRange {
     type: 'float';
 
@@ -6,10 +8,17 @@ export interface FloatRange {
     num_steps: number;
 }
 
+export interface AxisValue {
+    id: string;
+    name?: string;
+    group?: string;
+    value: string|number;
+}
+
 export interface EnumRange {
     type: 'enum';
 
-    values: unknown[];
+    values: Array<string|number>|Array<AxisValue>;
 }
 
 export type Range = FloatRange|EnumRange;
@@ -27,5 +36,5 @@ export interface CatalogConfig {
     name?: string; // Display name for the catalog. If not set, then the ID will be used.
 
     axes: CatalogAxisConfig[];
-    parameters?: Array<Partial<ParameterConfig & {pattern: string}>>;
+    parameters?: Array<Partial<PatternMatchedParameterConfig>>;
 }

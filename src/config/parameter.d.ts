@@ -23,3 +23,10 @@ export interface ParameterConfig {
     /** List of LoRAs to apply. */
     loras?: string[];
 }
+
+export interface PatternMatchedParameterConfig extends ParameterConfig {
+    pattern: string;
+
+    /** Checkpoint group to be used. */
+    group?: string;
+}

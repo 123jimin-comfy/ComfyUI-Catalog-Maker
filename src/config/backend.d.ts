@@ -1,6 +1,7 @@
-import { ParameterConfig } from "./parameter.d.ts";
+import { PatternMatchedParameterConfig } from "./parameter";
 
 export interface ComfyUIConfig {
+    ssl?: boolean;
     host: string;
 
     auth?: {
@@ -11,5 +12,5 @@ export interface ComfyUIConfig {
 
 export interface BackendConfig {
     comfy?: ComfyUIConfig;
-    parameters?: Array<Partial<ParameterConfig & {pattern: string}>>;
+    parameters?: Array<Partial<PatternMatchedParameterConfig>>;
 }

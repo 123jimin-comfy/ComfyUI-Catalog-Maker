@@ -14,7 +14,7 @@ import { BasicAuthPlugin} from "./index.mjs";
 export function createClient(config) {
     const client = new Client({
         WebSocket: WS,
-        ssl: true,
+        ssl: config.ssl ?? true,
         api_host: config.host,
     });
 
