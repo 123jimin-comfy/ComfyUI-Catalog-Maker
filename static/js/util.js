@@ -26,9 +26,27 @@ export function toFileName(name) {
  * @param {string} checkpoint
  * @return {string[]} The path to the image file.
  */
-function getImagePath(axis_value_ids, checkpoint) {
+export function getImagePath(axis_value_ids, checkpoint) {
     return [
         toFileName(checkpoint),
         axis_value_ids.length === 0 ? 'image' : axis_value_ids.join('_'),
     ];
+}
+
+/**
+ * @param {number[]} lens 
+ * @param {number[]} indices
+ * @returns {boolean} If the indices were advanced. If false, the indices are at the end.
+ */
+export function advanceIndices(lens, indices) {
+    for(let i = indices.length - 1; i >= 0; i--) {
+        indices[i]++;
+        if(indices[i] < lens[i]) {
+            return true;
+        } else {
+            indices[i] = 0;
+        }
+    }
+
+    return false;
 }

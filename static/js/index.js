@@ -5,11 +5,11 @@ const catalog = new Catalog(
     /** @type {HTMLDivElement} */ (document.getElementById("catalog"))
 );
 
-// This is for testing.
+// For testing!
 document.getElementById("btn-load-catalog")?.addEventListener("click", () => {
     const catalog_path = (/** @type {HTMLInputElement} */ (document.getElementById("catalog-path"))).value;
 
-    catalog.load(catalog_path).catch((err) => {
+    catalog.load(`data/${catalog_path}`).catch((err) => {
         console.error("Failed to load catalog!");
         console.error(err);
     });

@@ -1,5 +1,6 @@
 {
   "name": "comfyui-catalog-maker",
+  "type": "module",
   "version": "0.0.1",
   "description": "A tool for creating and updating sample images for T2I (text-to-image) models.",
   "bin": {

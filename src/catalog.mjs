@@ -14,7 +14,7 @@ import path from "node:path";
 
 import { createClient, generate, Client } from "./comfy-ui/index.mjs";
 import { createParameters, getCatalogAxisValues, getDefaultCheckpoint } from "./config/index.mjs";
-import { fileExists, toFileName } from "./util.mjs";
+import { advanceIndices, fileExists, getImagePath } from "./util.mjs";
 
 /**
  * Generates the catalog, and saves the rendered images and metadata to the output path.
@@ -130,6 +130,7 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
 
     const axis_indices = axes.map(() => 0);
     const axis_values_list = await Promise.all(axes.map(axis => getCatalogAxisValues(client, axis)));
+    const axis_value_counts = axis_values_list.map(values => values.length);
 
     if(out_axis_values_list) {
         out_axis_values_list.splice(0, out_axis_values_list.length, ...axis_values_list);
@@ -176,37 +177,5 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
             axis_indices.slice(),
             params,
         ];
-    } while(advanceAxisIndices(axis_indices, axis_values_list));
-}
-
-/**
- * @param {number[]} axis_indices 
- * @param {Array<unknown[]>} axis_values_list
- * @returns {boolean} If the axis indices were advanced. If false, the axis indices are at the end.
- */
-function advanceAxisIndices(axis_indices, axis_values_list) {
-    for(let i = axis_indices.length - 1; i >= 0; i--) {
-        axis_indices[i]++;
-        if(axis_indices[i] < axis_values_list[i].length) {
-            return true;
-        } else {
-            axis_indices[i] = 0;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Returns the path to the image file for the given checkpoint and generation parameters.
- * 
- * @param {string[]} axis_value_ids 
- * @param {string} checkpoint
- * @return {string[]} The path to the image file.
- */
-function getImagePath(axis_value_ids, checkpoint) {
-    return [
-        toFileName(checkpoint),
-        axis_value_ids.length === 0 ? 'image' : axis_value_ids.join('_'),
-    ];
+    } while(advanceIndices(axis_value_counts, axis_indices));
 }
