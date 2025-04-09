@@ -1,13 +1,33 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>ComfyUI Checkpoint Catalog</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="application-name" content="ComfyUI Catalog" />
+        <meta name="description" content="ComfyUI Catalog" />
+        <meta name="referrer" content="same-origin"/>
+        <meta name="robots" content="noindex,nofollow" />
+
+        <title>ComfyUI Catalog</title>
+        
+        <link rel="stylesheet" href="./index.css" />
+
+        <!-- Preload Scripts -->
+        <link rel="preload" as="script" crossorigin="anonymous" href="./js/ui/axis-picker.js" />
+        <link rel="preload" as="script" crossorigin="anonymous" href="./js/ui/catalog-grid.js" />
+        <link rel="preload" as="script" crossorigin="anonymous" href="./js/ui/catalog.js" />
+        <link rel="preload" as="script" crossorigin="anonymous" href="./js/ui/pick-saver.js" />
+        <link rel="preload" as="script" crossorigin="anonymous" href="./js/util.js" />
+
+        <!-- Preload Catalog List -->
+        <link rel="preload" as="fetch" crossorigin="anonymous" href="./data/index.json" />
+
+        <!-- Main Script -->
+        <script type="module" src="./js/index.js"></script>
     </head>
     <body>
+        <h1>ComfyUI Catalog</h1>
+        <label>Catalog: <select id="select-catalog"></select></label>
         <div id="catalog"></div>
-        <!-- For testing -->
-        <input type="text" id="catalog-path" placeholder="Catalog Path" />
-        <button id="btn-load-catalog">Load Catalog</button>
-        <script type="module" src="./js/index.js"></script>
     </body>
 </html>

@@ -1,8 +1,12 @@
 //@ts-check
 
-/** @import {CatalogMetadata} from "./catalog" */
+/** @import {CatalogMetadata} from "../catalog" */
 
-import {advanceIndices, getImagePath} from "./util.js";
+import { AxisPicker } from "./axis-picker.js";
+import { CatalogGrid } from "./catalog-grid.js";
+import { PickSaver } from "./pick-saver.js";
+
+import {advanceIndices, getImagePath} from "../util.js";
 
 /**
  * @param {CatalogMetadata} metadata
@@ -51,9 +55,16 @@ export class Catalog {
     /** @type {HTMLDivElement} */
     elem;
 
-    /** @type {HTMLDivElement} */
-    elem_grid;
+    /** @type {AxisPicker} */
+    axis_picker;
 
+    /** @type {PickSaver} */
+    pick_saver;
+
+    /** @type {CatalogGrid} */
+    grid;
+    
+    /** @type {string} */
     base_path = "";
 
     /** @type {CatalogMetadata} */
@@ -64,12 +75,17 @@ export class Catalog {
      */
     constructor(elem) {
         this.elem = elem;
+        elem.classList.add("catalog");
 
-        const elem_grid = document.createElement("div");
-        elem_grid.classList.add("catalog-grid");
+        this.axis_picker = new AxisPicker(document.createElement("div"));
+        this.axis_picker.onChange = (indices) => this.show(indices);
+        this.elem.appendChild(this.axis_picker.elem);
 
-        this.elem_grid = elem_grid;
-        this.elem.appendChild(elem_grid);
+        this.pick_saver = new PickSaver(document.createElement("div"));
+        this.elem.appendChild(this.pick_saver.elem);
+
+        this.grid = new CatalogGrid(document.createElement("div"));
+        this.elem.appendChild(this.grid.elem);
     }
 
     /**
@@ -79,22 +95,19 @@ export class Catalog {
     #setMetadata(base_path, metadata) {
         this.base_path = base_path;
         this.metadata = metadata;
+
+        this.grid.reset();
+        this.axis_picker.handleLoad(metadata);
     }
 
     /**
      * @param {string} catalog_path 
      */
     async load(catalog_path) {
-        console.log("Test: loading", catalog_path);
-
         /** @type {CatalogMetadata} */
         const metadata = await(await fetch(`${catalog_path}/metadata.json`)).json();
 
         this.#setMetadata(catalog_path, metadata);
-
-        console.log("Test: loaded metadata", metadata);
-
-        this.show(metadata.axes.map(() => -1));
     }
 
     /**
@@ -108,22 +121,30 @@ export class Catalog {
             throw new Error("Metadata not loaded!");
         }
 
-        /** @type {HTMLImageElement[]} */
-        const images = [];
-
+        /** @type {string[]} */
+        const image_srcs = [];
+        
         for(const indices of enumerateAxisIndices(this.metadata, fixed_indices)) {
-            const axis_ids = indices.map((i, axis) => this.metadata.axes[axis].values[i].id);
-            const checkpoint = getCheckpoint(this.metadata, indices);
-            if(!checkpoint) continue;
-
-            const path = getImagePath(axis_ids, checkpoint);
-            const src = `${this.base_path}/${path.join('/')}.png`;
-            
-            const img = document.createElement('img');
-            img.src = src;
-            images.push(img);
+            const image_src = this.#getImageSrc(indices);
+            if(image_src) image_srcs.push(image_src);
         }
 
-        this.elem_grid.replaceChildren(...images);
+        this.grid.showImages(image_srcs);
+    }
+
+    /**
+     * @param {number[]} indices 
+     * @returns {string|null}
+     */
+    #getImageSrc(indices) {
+        const axis_ids = indices.map((i, axis) => this.metadata.axes[axis].values[i].id);
+
+        const checkpoint = getCheckpoint(this.metadata, indices);
+        if(!checkpoint) return null;
+
+        const path = getImagePath(axis_ids, checkpoint);
+        const src = `${this.base_path}/${path.join('/')}.png`;
+
+        return src;
     }
 }
