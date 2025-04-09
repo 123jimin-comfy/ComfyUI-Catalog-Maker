@@ -24,10 +24,9 @@ export interface EnumRange {
 export type Range = FloatRange|EnumRange;
 
 export interface CatalogAxisConfig {
-    id: string; // Unique identifier for the axis.
+    target: string; // Target parameter to modify.
     name?: string; // Display name for the axis. If not set, then the ID will be used.
 
-    target: string; // Target parameter to modify.
     range?: Range;
 }
 

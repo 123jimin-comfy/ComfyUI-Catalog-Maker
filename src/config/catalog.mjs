@@ -3,7 +3,22 @@
 import { toFileName } from "../util.mjs";
 
 /** @import {Client} from "../comfy-ui/index.mjs" */
-/** @import {AxisValue, CatalogAxisConfig} from "./catalog" */
+/** @import {AxisValue, CatalogAxisConfig, CatalogConfig} from "./catalog" */
+
+/**
+ * Returns the default checkpoint for the given catalog.
+ * 
+ * @param {CatalogConfig} catalog_config
+ * @returns {string|null}
+ */
+export function getDefaultCheckpoint(catalog_config) {
+    for(const parameters of (catalog_config.parameters ?? [])) {
+        if(!parameters.pattern && parameters.checkpoint) {
+            return parameters.checkpoint;
+        }
+    }
+    return null;
+}
 
 /**
  * Returns the values for the given axis config.

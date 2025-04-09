@@ -1,8 +1,9 @@
 //@ts-check
 
 /** @import {BackendConfig} from "./config/backend" */
-/** @import {CatalogConfig, CatalogAxisConfig, AxisValue} from "./config/catalog" */
+/** @import {CatalogConfig, AxisValue} from "./config/catalog" */
 /** @import {ParameterConfig} from "./config/parameter" */
+/** @import {CatalogMetadata} from "./catalog" */
 
 /** @import {ImageGenerationParams} from "./comfy-ui/workflow/type" */
 
@@ -12,7 +13,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { createClient, generate, Client } from "./comfy-ui/index.mjs";
-import { createParameters, getCatalogAxisValues } from "./config/index.mjs";
+import { createParameters, getCatalogAxisValues, getDefaultCheckpoint } from "./config/index.mjs";
 import { fileExists, toFileName } from "./util.mjs";
 
 /**
@@ -68,7 +69,7 @@ export async function generateCatalog(backend_config, catalog_config, args) {
             },
         };
 
-        const output_file_path = path.join(args.output_dir, ...getImagePath(axis_value_ids, gen_params));
+        const output_file_path = path.join(args.output_dir, ...getImagePath(axis_value_ids, gen_params.checkpoint));
         const output_image_path = output_file_path + '.png';
         const output_json_path = output_file_path + '.json';
 
@@ -89,6 +90,30 @@ export async function generateCatalog(backend_config, catalog_config, args) {
             await fs.writeFile(output_json_path, JSON.stringify(gen_params, null, 4), 'utf-8');
         }
     }
+    
+    /** @type {CatalogMetadata} */
+    const catalog = {
+        id: catalog_config.id,
+        name: catalog_config.name ?? catalog_config.id,
+        checkpoint: getDefaultCheckpoint(catalog_config),
+        axes: axis_values_list.map((axis_values, axis_index) => {
+            const axis = catalog_config.axes[axis_index];
+
+            return {
+                target: axis.target,
+                name: axis.name ?? axis.target,
+                values: axis_values.map(({id, group, value}) => {
+                    return {
+                        id,
+                        group,
+                        value,
+                    };
+                }),
+            };
+        }),
+    };
+
+    await fs.writeFile(path.join(args.output_dir, 'metadata.json'), JSON.stringify(catalog, null, 4), 'utf-8');
 }
 
 /**
@@ -113,14 +138,7 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
     if(axes.length === 0) return;
     if(axis_values_list.some(values => values.length === 0)) return;
 
-    /** @type {string | null} */
-    let default_checkpoint = null;
-    for(const parameters of (catalog_config.parameters ?? [])) {
-        if(!parameters.pattern && parameters.checkpoint) {
-            default_checkpoint = parameters.checkpoint;
-            break;
-        }
-    }
+    const default_checkpoint = getDefaultCheckpoint(catalog_config);
 
     do {
         const axis_values = axis_indices.map((index, i) => axis_values_list[i][index]);
@@ -183,14 +201,12 @@ function advanceAxisIndices(axis_indices, axis_values_list) {
  * Returns the path to the image file for the given checkpoint and generation parameters.
  * 
  * @param {string[]} axis_value_ids 
- * @param {ImageGenerationParams} gen_params
+ * @param {string} checkpoint
  * @return {string[]} The path to the image file.
  */
-function getImagePath(axis_value_ids, gen_params) {
-    const checkpoint_dir = toFileName(gen_params.checkpoint);
-
+function getImagePath(axis_value_ids, checkpoint) {
     return [
-        checkpoint_dir,
+        toFileName(checkpoint),
         axis_value_ids.length === 0 ? 'image' : axis_value_ids.join('_'),
     ];
 }
