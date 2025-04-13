@@ -1,9 +1,8 @@
 import { PatternMatchedParameterConfig } from "./parameter";
 
 export interface ComfyUIConfig {
-    ssl?: boolean;
-    host: string;
-
+    url: string;
+    
     auth?: {
         username: string;
         password: string;

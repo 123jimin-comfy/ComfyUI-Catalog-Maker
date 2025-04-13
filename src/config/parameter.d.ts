@@ -1,7 +1,7 @@
 // Parameters for image generation.
 export interface ParameterConfig {
-    /** Workflow ID to use. If empty, then the checkpoint will be skipped. */
-    workflow: string;
+    /** Pipe ID to use. If empty, then the checkpoint will be skipped. */
+    pipe: string;
 
     checkpoint: string;
     prompt: string;

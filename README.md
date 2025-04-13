@@ -8,6 +8,8 @@ A few examples of catalogs are:
 - Prompt catalogs: A catalog of images with slightly different prompts.
 - Grid plots: A grid of images with different parameters across each axis.
 
+TODO: Add styles again.
+
 ## Instruction
 
 ```bash
@@ -42,7 +44,7 @@ height = 1152
 
 [[parameters]]
 pattern = "sdxl*/**"
-workflow = "sdxl"
+pipe = "efficient"
 styles = ["SDXL"]
 ```
 

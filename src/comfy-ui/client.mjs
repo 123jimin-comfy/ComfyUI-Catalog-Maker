@@ -6,6 +6,7 @@ export { Client } from "@stable-canvas/comfyui-client";
 import { Client } from "@stable-canvas/comfyui-client";
 import { WebSocket as WS } from "ws";
 import { BasicAuthPlugin} from "./index.mjs";
+import { parseComfyApiUrl } from "@jiminp/comfy-box";
 
 /**
  * @param {ComfyUIConfig} config 
@@ -13,9 +14,8 @@ import { BasicAuthPlugin} from "./index.mjs";
  */
 export function createClient(config) {
     const client = new Client({
+        ...parseComfyApiUrl(config.url),
         WebSocket: WS,
-        ssl: config.ssl ?? true,
-        api_host: config.host,
     });
 
     if(config.auth?.password) {

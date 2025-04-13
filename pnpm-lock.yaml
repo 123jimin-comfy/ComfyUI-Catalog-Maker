@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@jiminp/comfy-box':
+        specifier: github:123jimin-comfy/node-comfy-box
+        version: https://codeload.github.com/123jimin-comfy/node-comfy-box/tar.gz/820caad91d59f7311623054366eace3689185b95
       '@stable-canvas/comfyui-client':
         specifier: ^1.4.1
         version: 1.4.1
@@ -17,9 +20,6 @@ importers:
       toml:
         specifier: ^3.0.0
         version: 3.0.0
-      wildcard-match:
-        specifier: ^5.1.4
-        version: 5.1.4
       ws:
         specifier: ^8.18.1
         version: 8.18.1
@@ -29,6 +29,10 @@ importers:
         version: 2.0.17
 
 packages:
+
+  '@jiminp/comfy-box@https://codeload.github.com/123jimin-comfy/node-comfy-box/tar.gz/820caad91d59f7311623054366eace3689185b95':
+    resolution: {tarball: https://codeload.github.com/123jimin-comfy/node-comfy-box/tar.gz/820caad91d59f7311623054366eace3689185b95}
+    version: 0.0.1
 
   '@stable-canvas/comfyui-client@1.4.1':
     resolution: {integrity: sha512-d98eDPYC+QgZQ2MQZl5xXGC1h36M0Vqe3cwt0orgOisVgO49mhQNFOMPNtJ3oyPk4FXUPToDntwCKxEYg5FCCg==}
@@ -58,6 +62,11 @@ packages:
         optional: true
 
 snapshots:
+
+  '@jiminp/comfy-box@https://codeload.github.com/123jimin-comfy/node-comfy-box/tar.gz/820caad91d59f7311623054366eace3689185b95':
+    dependencies:
+      '@stable-canvas/comfyui-client': 1.4.1
+      wildcard-match: 5.1.4
 
   '@stable-canvas/comfyui-client@1.4.1': {}
 

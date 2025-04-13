@@ -1,20 +1,22 @@
 //@ts-check
 
+/** @import {BasePipeContext} from "@jiminp/comfy-box" */
+
 /** @import {BackendConfig} from "./config/backend" */
 /** @import {CatalogConfig, AxisValue} from "./config/catalog" */
 /** @import {ParameterConfig} from "./config/parameter" */
 /** @import {CatalogMetadata} from "./catalog" */
-
-/** @import {ImageGenerationParams} from "./comfy-ui/workflow/type" */
 
 /** @import {ProgramArgs} from "./bin/type" */
 
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { createClient, generate, Client } from "./comfy-ui/index.mjs";
-import { createParameters, getCatalogAxisValues, getDefaultCheckpoint } from "./config/index.mjs";
-import { advanceIndices, fileExists, getImagePath } from "./util.mjs";
+import { applyPresets, createPipe, withBasePipeContext } from "@jiminp/comfy-box";
+
+import { createClient, Client } from "./comfy-ui/index.mjs";
+import { DEFAULT_PARAMETERS, getCatalogAxisValues, getDefaultCheckpoint } from "./config/index.mjs";
+import { addCheckpointExtension, advanceIndices, createFilenamePrefix, fileExists, getImagePath } from "./util.mjs";
 
 /**
  * Generates the catalog, and saves the rendered images and metadata to the output path.
@@ -40,38 +42,38 @@ export async function generateCatalog(backend_config, catalog_config, args) {
 
     for await (const [indices, params] of enumerateImageGeneration(client, backend_config, catalog_config, axis_values_list)) {
         if(!params.checkpoint) continue;
-        if(!params.workflow) continue;
+        if(!params.pipe) continue;
 
         const axis_value_ids = axis_values_list
             .map((axis_values, i) => axis_values[indices[i]])
             .filter((_, i) => catalog_config.axes[i].target !== 'checkpoint')
             .map((axis_value) => axis_value.id);
 
-        /** @type {ImageGenerationParams} */
-        const gen_params = {
-            workflow_id: params.workflow,
-            checkpoint: params.checkpoint,
+        const checkpoint_name = addCheckpointExtension(params.checkpoint);
 
-            width: params.width, height: params.height,
-            prompt: {
-                style: params.styles ?? [],
-                positive: params.prompt,
-                negative: "",
-                loras: [],
-            },
-            sampler: {
-                seed: (params.seed && params.seed > 0) ? params.seed : global_random_seed,
-                steps: params.steps,
-                cfg: params.cfg,
-                sampler_name: params.sampler_name,
-                scheduler: params.scheduler,
-                denoise: params.denoise,
-            },
+        /** @type {Partial<BasePipeContext>} */
+        const gen_params = {
+            seed: (params.seed && params.seed > 0) ? params.seed : global_random_seed,
+            steps: params.steps,
+            cfg: params.cfg,
+            sampler_name: params.sampler_name,
+            scheduler: params.scheduler,
+            denoise: params.denoise,
+            width: params.width,
+            height: params.height,
+            batch_size: 1,
+            ckpt_name: checkpoint_name,
+            positive: params.prompt,
+            negative: "",
         };
 
-        const output_file_path = path.join(args.output_dir, ...getImagePath(axis_value_ids, gen_params.checkpoint));
+        const output_file_path = path.join(args.output_dir, ...getImagePath(axis_value_ids, checkpoint_name));
         const output_image_path = output_file_path + '.png';
         const output_json_path = output_file_path + '.json';
+
+        if(params.pipe !== 'efficient') {
+            throw new Error(`Unknown pipe: '${params.pipe}'`);
+        }
 
         // Creates the parent directory recursively.
         await fs.mkdir(path.dirname(output_file_path), { recursive: true });
@@ -83,8 +85,18 @@ export async function generateCatalog(backend_config, catalog_config, args) {
 
         console.log(`Rendering: ${output_image_path}`);
 
-        const image = await generate(client, gen_params);
-        await fs.writeFile(output_image_path, image);
+        const filename_prefix = createFilenamePrefix();
+
+        const pipe = createPipe(params.pipe).with(client);
+        
+        const {images} = await withBasePipeContext(pipe, gen_params).save(filename_prefix).wait();
+        if(images.length === 0) {
+            throw new Error(`No image generated: ${output_image_path}`);
+        }
+
+        const image = images[0].data;
+
+        await fs.writeFile(output_image_path, Buffer.from(image));
 
         if(args.gen_info) {
             await fs.writeFile(output_json_path, JSON.stringify(gen_params, null, 4), 'utf-8');
@@ -153,14 +165,17 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
             }
         }
 
-        const params = createParameters(checkpoint,
-            ...(backend_config.parameters ?? []),
-            ...(catalog_config.parameters ?? []),
+        const params = applyPresets(
+            {...DEFAULT_PARAMETERS, checkpoint},
+            [
+                ...(backend_config.parameters ?? []),
+                ...(catalog_config.parameters ?? []),
+            ], checkpoint
         );
 
         for(let i=0; i<axes.length; ++i) {
             const axis = axes[i];
-            const value = axis_values[i];
+            const value = axis_values[i].value;
 
             if(axis.target === "checkpoint") {
                 continue;
