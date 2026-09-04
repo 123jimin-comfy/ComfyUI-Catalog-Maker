@@ -1,0 +1,6 @@
+tag,description
+cli,Command-line interface
+configuration,Catalog configuration
+workflow,ComfyUI API workflow execution
+generation,Catalog generation
+viewer,Catalog browser interface
