@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node src/bin/main.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint src/ static/",
+    "test": "node --test \"src/**/*.spec.mjs\""
   },
   "keywords": [],
   "author": "",
