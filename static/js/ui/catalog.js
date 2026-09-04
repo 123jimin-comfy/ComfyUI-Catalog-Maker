@@ -137,7 +137,10 @@ export class Catalog {
      * @returns {string|null}
      */
     #getImageSrc(indices) {
-        const axis_ids = indices.map((i, axis) => this.metadata.axes[axis].values[i].id);
+        const axis_ids = indices
+            .map((i, axis) => ({ id: this.metadata.axes[axis].values[i].id, target: this.metadata.axes[axis].target }))
+            .filter(({ target }) => target !== 'checkpoint')
+            .map(({ id }) => id);
 
         const checkpoint = getCheckpoint(this.metadata, indices);
         if(!checkpoint) return null;

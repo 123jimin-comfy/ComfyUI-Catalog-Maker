@@ -35,7 +35,7 @@ export function addCheckpointExtension(checkpoint_name) {
  */
 export function createFilenamePrefix() {
     const now = new Date();
-    return `catalog-${now.getFullYear()}-${now.getMonth().toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    return `catalog-${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 }
 
 /**

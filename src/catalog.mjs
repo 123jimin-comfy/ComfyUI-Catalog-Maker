@@ -161,7 +161,7 @@ async function* enumerateImageGeneration(client, backend_config, catalog_config,
 
         for(let i=0; i<axes.length; ++i) {
             if(axes[i].target === "checkpoint") {
-                checkpoint = `${axis_values[i]}`;
+                checkpoint = `${axis_values[i].value}`;
             }
         }
 

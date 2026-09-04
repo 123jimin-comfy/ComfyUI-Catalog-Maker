@@ -16,12 +16,9 @@
   "packageManager": "pnpm@10.7.1",
   "dependencies": {
     "@jiminp/comfy-box": "github:123jimin-comfy/node-comfy-box",
-    "@stable-canvas/comfyui-client": "^1.4.1",
-    "argparse": "^2.0.1",
-    "toml": "^3.0.0",
-    "ws": "^8.18.1"
-  },
-  "devDependencies": {
-    "@types/argparse": "^2.0.17"
+    "@stable-canvas/comfyui-client": "^1.5.9",
+    "argparse": "^3.0.1",
+    "toml": "^5.0.0",
+    "ws": "^8.21.3"
   }
 }
