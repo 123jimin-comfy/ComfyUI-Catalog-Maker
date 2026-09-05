@@ -5,7 +5,11 @@ import {placeholderSpans, type TextSpan, validateSpans} from './text.ts';
 
 export const apiGraph = type({'[string]': {class_type: 'string > 0', inputs: type({'[string]': jsonValue})}});
 export type ApiGraph = typeof apiGraph.infer;
-export const nodeDefinitions = type({'[string]': {"output_node": 'boolean', 'input?': {'required?': 'Record<string, unknown>', 'optional?': 'Record<string, unknown>'}}});
+export const nodeDefinitions = type({'[string]': {
+    'output_node': 'boolean',
+    'output?': 'unknown[]',
+    'input?': {'required?': 'Record<string, unknown>', 'optional?': 'Record<string, unknown>'},
+}});
 export type NodeDefinitions = typeof nodeDefinitions.infer;
 
 export function validateGraph(data: unknown, catalog: CatalogConfig): ApiGraph {
@@ -35,7 +39,17 @@ export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definition
     const outputs: string[] = [];
     for(const [id, node] of Object.entries(graph)) {
         if(!Object.hasOwn(definitions, node.class_type)) throw new Error(`Node ${id}: unavailable node class ${node.class_type}`);
-        if(definitions[node.class_type]!.output_node) outputs.push(id);
+        const definition = definitions[node.class_type]!;
+        if(definition.output_node) outputs.push(id);
+        for(const required of Object.keys(definition.input?.required ?? {})) {
+            if(!Object.hasOwn(node.inputs, required)) throw new Error(`Node ${id}: missing required input ${required}`);
+        }
+        for(const [input, value] of Object.entries(node.inputs)) {
+            const replaced = catalog.variations.some((v) => v.target.node === id && v.target.input === input && !v.target.placeholder);
+            if(replaced) continue;
+            const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
+            validateInput(value, descriptor, graph, `${id}.inputs.${input}`, definitions);
+        }
     }
     if(catalog.output_node) {
         if(!outputs.includes(catalog.output_node)) throw new Error(`output_node ${catalog.output_node} is not an output node in the workflow`);
@@ -47,20 +61,23 @@ export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definition
         const definition = definitions[graph[node]!.class_type]!;
         const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
         if(typeof descriptor === 'undefined') throw new Error(`Node ${node}: input ${input} is not declared by the server`);
-        for(const candidate of variation.values) validateInput(candidate.value, descriptor, graph, `${node}.inputs.${input}`);
+        for(const candidate of variation.values) validateInput(candidate.value, descriptor, graph, `${node}.inputs.${input}`, definitions);
     }
     return catalog.output_node ?? outputs[0]!;
 }
 
-function validateInput(value: JsonValue, descriptor: unknown, graph: ApiGraph, target: string): void {
+function validateInput(value: JsonValue, descriptor: unknown, graph: ApiGraph, target: string, definitions: NodeDefinitions): void {
     const fail = () => { throw new Error(`Incompatible candidate value for ${target}: ${JSON.stringify(value)}`); };
-    if(!Array.isArray(descriptor) || descriptor.length === 0) return;
-    const kind: unknown = descriptor[0];
     // API links refer to graph nodes; they are not literal primitive values.
     if(Array.isArray(value) && value.length === 2 && typeof value[0] === 'string' && typeof value[1] === 'number') {
         if(!Object.hasOwn(graph, value[0]) || !Number.isInteger(value[1]) || value[1] < 0) fail();
+        const source = graph[value[0]];
+        const outputs: unknown = source && definitions[source.class_type]?.output;
+        if(Array.isArray(outputs) && value[1] >= outputs.length) fail();
         return;
     }
+    if(!Array.isArray(descriptor) || descriptor.length === 0) return;
+    const kind: unknown = descriptor[0];
     if(Array.isArray(kind)) {
         if(!kind.some((choice: unknown) => choice === value)) fail();
         return;

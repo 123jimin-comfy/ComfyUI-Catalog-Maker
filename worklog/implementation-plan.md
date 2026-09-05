@@ -11,7 +11,7 @@ Use `C:/Users/pjm95/GitHub/template.typescript.node/` as the reference for build
 - Retain source maps, declaration output, `.ts` source imports with `rewriteRelativeImportExtensions`, and `erasableSyntaxOnly`. Omit the template's unused JSX setting.
 - Use `tsc` for build/watch and Node's built-in test runner for compiled, colocated `*.spec.ts` tests. Reuse the template's ESLint configuration and import sorting.
 - Point the CLI binary at `dist/bin/main.js`; keep a shebang. Build before tests and packaging; exclude compiled tests from the package.
-- Select an explicit supported Node runtime before setting `engines`, compiler target/lib, `@types/node`, and CI. The template's `ESNext`, Node types version, and floating `lts/*` are not evidence of this project's runtime support.
+- Follow the reference template's runtime and CI setup, including `ESNext` and `lts/*`; do not add a runtime matrix or packaging artifacts.
 - Use the project's pnpm lockfile and release-age policy. Do not run the template bootstrap or copy its package identity, license, or lockfile wholesale.
 
 ## Dependencies to Download
@@ -54,7 +54,7 @@ No additional test runner, TypeScript runtime loader, bundler, dependency-inject
 | `@stable-canvas/comfyui-client` `1.5.9` | Retain behind the ComfyUI adapter. Installed declarations expose node definitions, prompt submission, status, outputs, and connection cleanup. Verify behavior with adapter contract tests before relying on convenience methods. |
 | `ws` `8.21.3` | Retain for the client's Node WebSocket transport and authentication support. |
 | `argparse` `3.0.1` | Retain the existing CLI parser; the installed package includes TypeScript declarations. |
-| `toml` `5.0.0` | Retain if TOML is confirmed as the configuration format; it includes declarations. Serialization is still open in s0002. |
+| `toml` `5.0.0` | Retain for the confirmed TOML configuration format; it includes declarations. |
 | `@jiminp/comfy-box` | Remove from the new runtime: its pipeline creation and preset/default resolution do not belong in the supplied-workflow model. |
 
 Keep new code independent of `src-old/`; consult it for established behavior, not as a runtime dependency. Do not upgrade retained libraries merely as part of the language migration.
@@ -101,15 +101,15 @@ The dependency direction is `CLI -> generation -> graph operations / ComfyUI / i
 4. For each pending coordinate, create its graph, execute it, retrieve the selected node's images, normalize/optimize them, and publish images and optional workflow sidecar.
 5. Commit completion metadata after saving the entry; report progress and close resources on completion or failure.
 
-## Choices to Resolve Before Their Implementation
+## Confirmed Policies
 
-These gaps already exist in the specs; do not silently encode library defaults as product policy:
+The following choices are reflected in the governing specs and implementation:
 
-- **Runtime:** choose the supported Node release and align types, compiler target, and CI.
-- **s0002:** confirm configuration serialization and relative path resolution. Proposal: retain TOML and resolve workflow paths relative to the catalog configuration file. Also resolve overlapping variations that target the same input.
-- **s0003:** define timeout, reconnection, and cancellation behavior, especially ambiguous submission outcomes. Proposal: no automatic resubmission after an uncertain result.
-- **s0004:** finalize the metadata JSON schema and changed-input resume policy before implementing persistence. Proposal: version the schema and record a generation-input fingerprint to detect changed workflows/configurations.
-- **s0004:** define concurrency and failure continuation. Proposal: process entries sequentially and stop on the first failed entry for the initial implementation.
+- **Runtime:** use the template's setup and ArkType for validation.
+- **s0002:** use TOML and resolve workflow paths relative to the catalog configuration file. Distinct text placeholders support character/gesture variations in one prompt; conflicting targets are rejected.
+- **s0003:** no automatic resubmission after an uncertain result; use prompt-specific history rather than queue absence to establish completion.
+- **s0004:** use versioned metadata with a generation-input fingerprint; changed inputs require force/reset.
+- **s0004:** process entries sequentially and stop on the first failed entry.
 
 ## Implementation and Verification Order
 

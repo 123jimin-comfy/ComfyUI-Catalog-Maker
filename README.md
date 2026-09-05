@@ -1,119 +1,118 @@
 # ComfyUI Catalog Maker
 
-Generate comparable image catalogs with ComfyUI. Define the generation defaults once, choose the parameters to vary, and render every combination into a structured output directory.
+Generate image catalogs from a user-supplied ComfyUI API workflow. Define variations over node inputs, render each combination sequentially, and save images and metadata in one flat directory.
 
-Useful for:
+## Setup
 
-- comparing checkpoints with the same prompt and settings;
-- testing prompt or sampler variations;
-- building grids across parameters such as CFG and steps.
+Use Node.js and pnpm with the build/test setup from the TypeScript Node template. Install [pngquant](https://pngquant.org/) on PATH for default lossy PNG optimization. The Windows live test used the official pngquant 2.17.0 binary; the CLI checks availability before generation.
 
-## Quick start
-
-Requirements: Node.js, pnpm, and a reachable ComfyUI server with the required checkpoints installed.
-
-```bash
+```sh
 pnpm install
-pnpm start -- -b backend.toml catalog.toml output
+pnpm build
+pnpm start -- -b backend.toml catalog.toml output --gen-info
 ```
 
-If the package is installed as a command, the equivalent invocation is:
-
-```bash
-make-comfy-catalog -b backend.toml catalog.toml output
-```
-
-The command writes generated PNG files and `metadata.json` under `output`. Existing images are skipped by default, so rerunning the same catalog resumes incomplete work.
+The installed command is `make-comfy-catalog`. The CLI runs compiled TypeScript from `dist/`; `src-old/` is not part of the runtime. Viewer implementation is outside this revision's scope.
 
 ## Configuration
 
-Configuration is split by responsibility:
+Both configuration files use TOML. Workflow files use ComfyUI's **Export (API)** JSON format. The editor's regular JSON export is not executable through this CLI.
 
-- `backend.toml` defines the ComfyUI connection and reusable generation defaults.
-- `catalog.toml` defines one catalog and the axes that vary.
-
-Values are resolved in this order: built-in defaults, backend parameters, catalog parameters, then axis values.
-
-### `backend.toml`
+Backend configuration contains connection settings only:
 
 ```toml
 [comfy]
 url = "http://127.0.0.1:8188"
 
-# Optional HTTP Basic authentication
-[comfy.auth]
-username = "user"
-password = "password"
-
-[[parameters]]
-# Applied to every checkpoint
-width = 896
-height = 1152
-
-[[parameters]]
-# Applied only to matching checkpoints
-pattern = "sdxl*/**"
-pipe = "efficient"
-styles = ["SDXL"]
+# Optional HTTP Basic authentication:
+# [comfy.auth]
+# username = "..."
+# password = "..."
 ```
 
-### `catalog.toml`
-
-This example varies CFG and steps for one checkpoint and prompt:
+A catalog references one workflow. Relative workflow paths resolve from the catalog file's directory. This example uses the sampler node ID from the supplied Anima workflow:
 
 ```toml
-id = "cfg_steps"
-name = "CFG × Steps"
+id = "cfg"
+name = "CFG comparison"
+workflow = "comfy-workflow-Anima-api.json"
 
-[[parameters]]
-checkpoint = "sdxl/foo.safetensors"
-prompt = "1girl, solo, outdoors, casual, looking at viewer, full body"
-
-[[axes]]
+[[variations]]
 name = "CFG"
-target = "cfg"
-
-[axes.range]
-type = "float"
-min = 1.0
-max = 20.0
-num_steps = 19
-
-[[axes]]
-name = "Steps"
-target = "steps"
-
-[axes.range]
-type = "enum"
-values = [1, 2, 4, 8, 16, 32, 64]
+target = { node = "60:19", input = "cfg" }
+values = [{ value = 4, label = "Four" }, { value = 5 }]
 ```
 
-Each combination of axis values produces one image. Common axis targets include `checkpoint`, `prompt`, `cfg`, `steps`, `seed`, `width`, `height`, `sampler_name`, `scheduler`, and `denoise`.
+Every variation needs at least one value. Values may include `label` and `category` fields for display and organization. Categories do not add combinations or affect execution. Unvaried inputs, including seeds, retain the workflow's values.
 
-An axis with `target = "checkpoint"` may omit its range to use every checkpoint reported by ComfyUI.
+The workflow's sole output node is selected automatically. If several output nodes exist, set a top-level `output_node = "46"` to select one by exact node ID. All images in a batch returned by that node are saved.
 
-## Command options
+### Character and gesture variations
+
+For two variations inside one prompt, put literal placeholders into the workflow's text input:
 
 ```text
--b, --backend PATH  Backend configuration file (required)
--f, --force         Regenerate existing images
-    --reset         Delete the output directory before generating
-    --gen-info      Write generation parameters beside each image
+masterpiece, best quality, score_7, safe, 1girl, looking at viewer, {{character}}, smiling, {{gesture}}
 ```
 
-`--reset` removes the selected output directory before work begins. Use it carefully.
+Then declare the corresponding dimensions in the catalog:
 
-## Current limitation
+```toml
+[[variations]]
+name = "Character"
+target = { node = "60:11", input = "text", placeholder = "{{character}}" }
+values = [{ value = "hatsune miku" }]
 
-Only the `efficient` generation pipe is supported.
+[[variations]]
+name = "Gesture"
+target = { node = "60:11", input = "text", placeholder = "{{gesture}}" }
+values = [{ value = "double v" }]
+```
 
-## Proposed improvements
+Add candidate values to either dimension to generate their Cartesian product. Placeholders are exact text matches, must exist, and must not overlap. Replacements happen against the original text, so inserted strings are never processed as templates. Without `placeholder`, a variation replaces the entire input.
 
-These are not implemented yet:
+## Output and resumption
 
-- `--dry-run`: validate both configs and report the number of images before starting.
-- `--jobs <count>`: render multiple independent combinations concurrently with a safe default of one.
-- `--gallery`: copy the existing static viewer and generate its catalog index, producing a browsable result without manual setup.
+```text
+output/
+  metadata.json
+  0-0.0.png
+  0-0.1.png          # If the selected output node returns a second image.
+  0-0.workflow.json # With --gen-info.
+```
+
+The coordinate contains zero-based candidate indices in variation order. The final numeric suffix is the image's index within the returned batch.
+
+Metadata records the schema version, generation-input fingerprint, catalog identity, selected output node, variation definitions, and completed entries. An entry is complete only after every image and requested workflow sidecar is saved. Rerunning skips complete entries with all files present and retries incomplete ones.
+
+Changed catalog settings or workflow contents require `--force` or `--reset`; changing image optimization options alone does not invalidate existing entries. `--force` regenerates entries. `--reset` deletes the chosen output directory's contents; it refuses to delete input configs or the source workflow. Invalid metadata requires a reset.
+
+Generation stops on the first failure. Errors include the coordinate and, when available, prompt ID and node details. Submitted prompts are never automatically resubmitted. The CLI polls that prompt's history until completion or failure; Ctrl+C stops local work but does not cancel the server's job.
+
+## PNG optimization
+
+Downloaded PNGs go through pngquant at quality `85–95`. The optimized image is used only when it satisfies the minimum quality and is smaller; otherwise the original is retained. Dimensions and transparency support are preserved. Other image formats are decoded and encoded as PNG first.
+
+```sh
+pnpm start -- -b backend.toml catalog.toml output --png-quality 75-90
+pnpm start -- -b backend.toml catalog.toml output --no-png-optimization
+```
+
+The quality range is an optimizer score, not a percentage of perceived fidelity. In the 512×512 live sample, `85–95` retained the original; `75–90` reduced 356,369 bytes to 125,490 bytes with visible dithering. Evaluate the setting for your images. Use `--force` when changing the setting for already completed entries.
+
+## Options and development
+
+Run `pnpm start -- --help` for all options: `--backend`, `--force`, `--reset`, `--gen-info`, `--png-quality`, and `--no-png-optimization`.
+
+```sh
+pnpm lint
+pnpm build
+pnpm test
+pnpm build:watch
+pnpm clean
+```
+
+Tests use Node's built-in runner and a controlled local ComfyUI server; they never contact the configured live backend. Real optimizer tests run when pngquant is on PATH; CI installs it. ArkType owns runtime validation, the existing ComfyUI client is isolated behind an adapter, and Sharp handles image decoding and PNG conversion.
 
 ## License
 

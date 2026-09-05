@@ -173,6 +173,17 @@ test('invalid targets fail before reset or submission', async (t) => {
     assert.ok((await readdir(f.output)).includes('metadata.json'));
 });
 
+test('broken baseline graph links fail before reset or submission', async (t) => {
+    const f = await fixture(t);
+    await f.run();
+    await writeFile(path.join(f.root, 'workflow.json'), JSON.stringify({...workflow, 46: {class_type: 'SaveImage', inputs: {images: ['absent-node', 0]}}}));
+    const result = await f.run('--reset');
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /46.inputs.images/);
+    assert.equal(f.prompts.length, 2);
+    assert.ok((await readdir(f.output)).includes('0.0.png'));
+});
+
 for(const mode of ['fail', 'reject', 'empty', 'drop'] as const) {
     test(`${mode} reports failure, does not resubmit, and does not complete an entry`, async (t) => {
         const f = await fixture(t, {[mode]: true});
