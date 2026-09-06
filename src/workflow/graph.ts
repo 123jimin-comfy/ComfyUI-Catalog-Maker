@@ -13,8 +13,17 @@ export const nodeDefinitions = type({'[string]': {
 export type NodeDefinitions = typeof nodeDefinitions.infer;
 
 export function validateGraph(data: unknown, catalog: CatalogConfig): ApiGraph {
-    const graph = apiGraph.assert(data);
+    const graph = structuredClone(apiGraph.assert(data));
     if(Object.keys(graph).length === 0) throw new Error('Workflow must contain an API node graph. Export API format from ComfyUI.');
+    const overridden = new Set<string>();
+    for(const override of catalog.overrides ?? []) {
+        const {node, input} = override.target;
+        if(!Object.hasOwn(graph, node) || !Object.hasOwn(graph[node]!.inputs, input)) throw new Error(`Override: missing target ${node}.inputs.${input}`);
+        const key = JSON.stringify([node, input]);
+        if(overridden.has(key)) throw new Error(`Multiple overrides target ${node}.inputs.${input}`);
+        overridden.add(key);
+        graph[node]!.inputs[input] = structuredClone(override.value);
+    }
     const seen = new Map<string, TextSpan[] | null>();
     for(const variation of catalog.variations) {
         const {node, input, placeholder} = variation.target;
@@ -62,6 +71,13 @@ export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definition
         const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
         if(typeof descriptor === 'undefined') throw new Error(`Node ${node}: input ${input} is not declared by the server`);
         for(const candidate of variation.values) validateInput(candidate.value, descriptor, graph, `${node}.inputs.${input}`, definitions);
+    }
+    for(const override of catalog.overrides ?? []) {
+        const {node, input} = override.target;
+        const definition = definitions[graph[node]!.class_type]!;
+        const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
+        if(typeof descriptor === 'undefined') throw new Error(`Node ${node}: input ${input} is not declared by the server`);
+        validateInput(override.value, descriptor, graph, `${node}.inputs.${input}`, definitions);
     }
     return catalog.output_node ?? outputs[0]!;
 }

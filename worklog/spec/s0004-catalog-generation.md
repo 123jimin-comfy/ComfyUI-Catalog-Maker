@@ -59,6 +59,7 @@ interface CatalogMetadata {
 ```
 
 - Fingerprinting excludes backend credentials, the workflow file's location, and CLI optimization options. Object keys are sorted; array order is preserved. Unknown metadata versions and invalid coordinates or filenames are rejected before reuse.
+- Fingerprinting includes catalog overrides and the original source graph. Candidate shorthand is normalized to objects before fingerprinting and metadata serialization, so equivalent candidate notations have identical fingerprints. Metadata variation values always use the object form.
 
 ## Constraints
 

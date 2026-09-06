@@ -246,6 +246,49 @@ test('a corrupted metadata image path is rejected before force can touch files',
     assert.match(await readFile(path.join(f.root, 'backend.toml'), 'utf8'), /\[comfy\]/);
 });
 
+test('catalog overrides and shorthand reach execution, sidecars, metadata, and resume checks', async (t) => {
+    const f = await fixture(t);
+    const source = {...workflow, 11: {class_type: 'Text', inputs: {text: 'original'}}};
+    await writeFile(path.join(f.root, 'workflow.json'), JSON.stringify(source));
+    const config = `id = "text"
+name = "Text"
+workflow = "workflow.json"
+[[overrides]]
+target = {node = "60:19", input = "seed"}
+value = 100
+[[overrides]]
+target = {node = "11", input = "text"}
+value = "prefix {{value}}"
+[[variations]]
+name = "Text"
+target = {node = "11", input = "text", placeholder = "{{value}}"}
+values = ["A", "C/B"]
+`;
+    await writeFile(path.join(f.root, 'catalog.toml'), config);
+    const result = await f.run('--gen-info');
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(f.prompts.length, 2);
+    for(const [index, text] of ['prefix A', 'prefix B'].entries()) {
+        assert.deepEqual(f.prompts[index]?.['60:19'], {class_type: 'Sampler', inputs: {cfg: 4, seed: 100}});
+        assert.deepEqual(f.prompts[index]?.['11'], {class_type: 'Text', inputs: {text}});
+        assert.deepEqual(JSON.parse(await readFile(path.join(f.output, `${index}.workflow.json`), 'utf8')), f.prompts[index]);
+    }
+    assert.equal(await readFile(path.join(f.root, 'workflow.json'), 'utf8'), JSON.stringify(source));
+    const metadata = JSON.parse(await readFile(path.join(f.output, 'metadata.json'), 'utf8')) as {variations: {values: unknown[]}[]};
+    assert.deepEqual(metadata.variations[0]!.values, [{value: 'A'}, {value: 'B', category: 'C'}]);
+    await writeFile(path.join(f.root, 'catalog.toml'), config.replace('["A", "C/B"]', '[{value = "A"}, {value = "B", category = "C"}]'));
+    assert.equal((await f.run('--gen-info')).code, 0);
+    assert.equal(f.prompts.length, 2);
+    for(const invalid of [config.replace('value = 100', 'value = 101'), config.replace('"C/B"', '"C/B/D"')]) {
+        await writeFile(path.join(f.root, 'catalog.toml'), invalid);
+        assert.notEqual((await f.run()).code, 0);
+        assert.equal(f.prompts.length, 2);
+    }
+    await writeFile(path.join(f.root, 'catalog.toml'), config.replace('input = "seed"', 'input = "absent"'));
+    assert.notEqual((await f.run('--reset')).code, 0);
+    assert.ok((await readdir(f.output)).includes('0.0.png'));
+});
+
 test('missing optimizer fails before reset', async (t) => {
     const f = await fixture(t);
     await f.run();

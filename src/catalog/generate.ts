@@ -25,7 +25,7 @@ export async function generateCatalog(options: RunOptions, signal: AbortSignal, 
         const outputNode = selectOutput(loaded.graph, loaded.catalog, await connection.definitions());
         signal.throwIfAborted();
         const directory = path.resolve(options.output);
-        const metadata = await prepareOutput(directory, newMetadata(loaded.catalog, loaded.graph, outputNode), options.reset, options.force, loaded.sourcePaths);
+        const metadata = await prepareOutput(directory, newMetadata(loaded.catalog, loaded.sourceGraph, outputNode), options.reset, options.force, loaded.sourcePaths);
         for(const coordinate of coordinates(loaded.catalog.variations)) {
             signal.throwIfAborted();
             const key = coordinate.join('-');

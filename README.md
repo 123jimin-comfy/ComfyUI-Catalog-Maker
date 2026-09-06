@@ -43,9 +43,32 @@ target = { node = "60:19", input = "cfg" }
 values = [{ value = 4, label = "Four" }, { value = 5 }]
 ```
 
-Every variation needs at least one value. Values may include `label` and `category` fields for display and organization. Categories do not add combinations or affect execution. Unvaried inputs, including seeds, retain the workflow's values.
+Every variation needs at least one value. Values may include `label` and `category` fields for display and organization. Categories do not add combinations or affect execution. Inputs retain the workflow's values unless an override or variation replaces them.
+
+String candidates support shorthand:
+
+| Shorthand | Equivalent object |
+| --- | --- |
+| `"V"` | `{ value = "V" }` |
+| `"C/V"` | `{ value = "V", category = "C" }` |
+
+A shorthand string containing more than one `/` is an error. Use the object form for literal values containing slashes, labels, or non-string values. Shorthand and object candidates can be mixed in one `values` array. Strings are not trimmed or converted to numbers; empty strings and empty category/value segments remain empty. Metadata stores normalized candidate objects, so switching between equivalent notations does not invalidate resume reuse.
 
 The workflow's sole output node is selected automatically. If several output nodes exist, set a top-level `output_node = "46"` to select one by exact node ID. All images in a batch returned by that node are saved.
+
+### Per-catalog overrides
+
+Add optional `[[overrides]]` entries to set fixed node input values for every catalog entry:
+
+```toml
+[[overrides]]
+target = { node = "60:19", input = "seed" }
+value = 42
+```
+
+Each override has a `target` with an exact `node` ID and `input` name, plus one `value`. Targets must already exist; duplicate override targets and incompatible values are rejected before generation. Overrides replace complete input values, including arrays and objects, without deep merging or placeholder substitution.
+
+Application order is **workflow → overrides → variations**. A whole-input variation replaces the overridden value; a placeholder variation uses the overridden text as its baseline. Every entry uses a fresh copy, and the source workflow file remains unchanged. Overrides do not add combinations. Changing overrides requires `--force` or `--reset` when reusing an output directory.
 
 ### Character and gesture variations
 
@@ -61,15 +84,15 @@ Then declare the corresponding dimensions in the catalog:
 [[variations]]
 name = "Character"
 target = { node = "60:11", input = "text", placeholder = "{{character}}" }
-values = [{ value = "hatsune miku" }]
+values = ["hatsune miku"]
 
 [[variations]]
 name = "Gesture"
 target = { node = "60:11", input = "text", placeholder = "{{gesture}}" }
-values = [{ value = "double v" }]
+values = ["double v"]
 ```
 
-Add candidate values to either dimension to generate their Cartesian product. Placeholders are exact text matches, must exist, and must not overlap. Replacements happen against the original text, so inserted strings are never processed as templates. Without `placeholder`, a variation replaces the entire input.
+Add candidate values to either dimension to generate their Cartesian product. Placeholders are exact text matches, must exist, and must not overlap. Replacements happen against the baseline text after overrides, so inserted strings are never processed as templates. Without `placeholder`, a variation replaces the entire input.
 
 ## Output and resumption
 

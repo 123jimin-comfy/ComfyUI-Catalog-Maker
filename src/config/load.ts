@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import toml from 'toml';
 
-import {validateGraph} from '../workflow/graph.ts';
+import {apiGraph, validateGraph} from '../workflow/graph.ts';
 import {backendConfig, catalogConfig} from './schema.ts';
 
 export async function loadConfiguration(backendPath: string, catalogPath: string) {
@@ -14,6 +14,7 @@ export async function loadConfiguration(backendPath: string, catalogPath: string
         throw new Error('ComfyUI URL must be HTTP(S), without credentials, query, or fragment; use comfy.auth for authentication.');
     }
     const workflowPath = path.resolve(path.dirname(catalogPath), catalog.workflow);
-    const graph = validateGraph(JSON.parse(await readFile(workflowPath, 'utf8')), catalog);
-    return {backend, catalog, graph, sourcePaths: [path.resolve(backendPath), path.resolve(catalogPath), workflowPath]};
+    const sourceGraph = apiGraph.assert(JSON.parse(await readFile(workflowPath, 'utf8')));
+    const graph = validateGraph(sourceGraph, catalog);
+    return {backend, catalog, graph, sourceGraph, sourcePaths: [path.resolve(backendPath), path.resolve(catalogPath), workflowPath]};
 }
