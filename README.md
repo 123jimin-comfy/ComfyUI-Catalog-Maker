@@ -118,6 +118,8 @@ Generation stops on the first failure. Errors include the coordinate and, when a
 
 Downloaded PNGs go through pngquant at quality `65–80`. The optimized image is used only when it satisfies the minimum quality and is smaller; otherwise the original is retained. Dimensions and transparency support are preserved. Other image formats are decoded and encoded as PNG first.
 
+Images are passed to pngquant through stdin/stdout; optimization does not require shared temporary files between Node.js and pngquant.
+
 ```sh
 pnpm start generate -b backend.toml catalog.toml output --png-quality 75-90
 pnpm start generate -b backend.toml catalog.toml output --no-png-optimization

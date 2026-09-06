@@ -43,6 +43,18 @@ test('quality rejection retains original bytes', async (t) => {
     assert.deepEqual(await preparePng(png, {optimize: true, quality: [100, 100]}), png);
 });
 
+test('optimization retains original bytes when the result is not smaller', async (t) => {
+    if(!await optimizerAvailable(t)) return;
+    const png = await sharp({create: {width: 1, height: 1, channels: 4, background: '#12345680'}}).png().toBuffer();
+    assert.deepEqual(await preparePng(png, {optimize: true, quality: [65, 80]}), png);
+});
+
+test('an aborted optimization rejects with the cancellation reason', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('cancel optimization'));
+    await assert.rejects(preparePng(Buffer.alloc(0), {optimize: true, quality: [65, 80]}, controller.signal), /cancel optimization/);
+});
+
 test('corrupt image bytes fail instead of being published as PNG', async () => {
     await assert.rejects(preparePng(Buffer.from('not an image'), {optimize: false, quality: [85, 95]}));
 });
