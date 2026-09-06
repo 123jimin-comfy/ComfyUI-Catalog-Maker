@@ -66,7 +66,7 @@ target = { node = "60:19", input = "seed" }
 value = 42
 ```
 
-Each override has a `target` with an exact `node` ID and `input` name, plus one `value`. Targets must already exist; duplicate override targets and incompatible values are rejected before generation. Overrides replace complete input values, including arrays and objects, without deep merging or placeholder substitution.
+Each override has a `target` with an exact `node` ID and `input` name, plus one `value`. Targets must already exist; duplicate override targets and incompatible final input values are rejected before generation. Overrides replace complete input values, including arrays and objects, without deep merging. Placeholder variations can subsequently substitute into overridden strings.
 
 Application order is **workflow → overrides → variations**. A whole-input variation replaces the overridden value; a placeholder variation uses the overridden text as its baseline. Every entry uses a fresh copy, and the source workflow file remains unchanged. Overrides do not add combinations. Changing overrides requires `--force` or `--reset` when reusing an output directory.
 
@@ -93,6 +93,8 @@ values = ["double v"]
 ```
 
 Add candidate values to either dimension to generate their Cartesian product. Placeholders are exact text matches, must exist, and must not overlap. Replacements happen against the baseline text after overrides, so inserted strings are never processed as templates. Without `placeholder`, a variation replaces the entire input.
+
+Server input compatibility is checked against final substituted values, not templates or candidate fragments. For example, `Anima/{{model}}.safetensors` with candidate `tekitoMix_v321` is checked as `Anima/tekitoMix_v321.safetensors` against the server's model list. Validation combines all placeholders sharing an input; whole-input variations supersede baseline and override values. Overrides without variations must themselves be compatible.
 
 ## Output and resumption
 
@@ -166,6 +168,8 @@ Serve the directory using an ordinary static HTTP(S) host. No application backen
 
 The viewer provides compact mobile and desktop browsing with gallery, matrix, single-row, and single-column views. Choose or swap axes, fix additional dimensions, and use **Filter / compare** to select candidate values or categories for aligned comparisons. Shared headers and compact captions identify parameters; the image viewer exposes full values and categories. Catalog names have no order numbers or completion counters.
 
+By default, the first configured variation is the X/column axis and the second is the Y/row axis; additional variations are fixed selections. A single variation uses the gallery. Axis selectors and Swap override this layout. Gallery entries remain numerically ordered by their coordinates in configuration order.
+
 Click an image to open it uncropped on the same page. Close or press Escape to return to your browsing position. Batch controls expose every image in recorded order. Desktop arrow keys navigate focused gallery images; Enter opens one. In the image viewer, left/right changes entries and up/down changes batch images. Bracket keys move between rows or columns in single-axis views; **Keys** or `?` shows the reference.
 
 Images load lazily, with at most 48 image cells per page (matrix pages contain up to eight rows and six columns). Missing matrix results retain their positions. Empty, invalid, and broken-image states are supported. Selected-catalog metadata is still loaded in memory. Browser modules run directly without a frontend build step or third-party runtime dependencies.
@@ -194,7 +198,7 @@ pnpm build:watch
 pnpm clean
 ```
 
-Optional browser regression checks use an existing Playwright installation: set `PLAYWRIGHT_MODULE` to its absolute `index.mjs` path and run `node --test tests/viewer-browser.spec.mjs`. The fixture serves 20 synthetic 512×512 images and checks mobile and desktop interactions without ComfyUI. Set `VIEWER_SCREENSHOT` to an output PNG path to capture the mobile matrix.
+Optional browser regression checks use an existing Playwright installation: set `PLAYWRIGHT_MODULE` to its absolute `index.mjs` path and run `node --test tests/viewer-browser.spec.mjs`. The fixture serves synthetic 512×512 images and checks mobile and desktop interactions without ComfyUI. Set `VIEWER_SCREENSHOT` to an output PNG path to capture the mobile matrix.
 
 Tests use Node's built-in runner and a controlled local ComfyUI server; they never contact the configured live backend. Real optimizer tests run when pngquant is on PATH; CI installs it. ArkType owns runtime validation, the existing ComfyUI client is isolated behind an adapter, and Sharp handles image decoding and PNG conversion.
 
