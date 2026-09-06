@@ -78,7 +78,7 @@ function renderControls() {
             state.mode = value;
             update();
         }));
-        for(const [key, other, name] of [['rowAxis', 'columnAxis', 'Rows'], ['columnAxis', 'rowAxis', 'Columns']]) {
+        for(const [key, other, name] of [['columnAxis', 'rowAxis', 'Columns'], ['rowAxis', 'columnAxis', 'Rows']]) {
             controls.append(picker(name, axes, state[key], (value) => {
                 const previous = state[key];
                 state[key] = Number(value);
@@ -179,7 +179,7 @@ function renderCell(cell, matrix = false) {
     image.src = new URL(cell.entry.images[0].file, metadataURL).href;
     open.append(image);
     card.append(open);
-    if(!matrix) card.append(element('p', caption(cell.coordinate, [state.rowAxis, state.columnAxis].filter((axis) => axis >= 0)), 'caption'));
+    if(!matrix) card.append(element('p', caption(cell.coordinate, [state.columnAxis, state.rowAxis].filter((axis) => axis >= 0)), 'caption'));
     if(cell.entry.images.length > 1) {
         const batch = button(`${cell.entry.images.length} images`, () => openImage(entryIndex, 0, batch), `View ${cell.entry.images.length} batch images: ${caption(cell.coordinate)}`);
         batch.className = 'batch-button';

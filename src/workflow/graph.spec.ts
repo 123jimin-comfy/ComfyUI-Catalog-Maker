@@ -42,15 +42,82 @@ test('missing and duplicate override targets are rejected', () => {
     assert.throws(() => validateGraph(source, catalogConfig.assert({...base, overrides: [override, override]})), /Multiple overrides/);
 });
 
-test('override compatibility is checked even when a variation replaces it', () => {
+test('static overrides must remain compatible with their inputs', () => {
     for(const override of [
-        {target: {node: '1', input: 'text'}, value: 42},
         {target: {node: '1', input: 'seed'}, value: '42'},
         {target: {node: '1', input: 'options'}, value: ['missing', 0]},
     ]) {
         const catalog = catalogConfig.assert({...base, overrides: [override]});
         assert.throws(() => selectOutput(validateGraph(source, catalog), catalog, definitions), /Incompatible/);
     }
+});
+
+test('whole-input variations supersede incompatible baselines and overrides', () => {
+    const enumDefinitions: NodeDefinitions = {Output: {output_node: true, input: {required: {text: [['A', 'B']]}}}};
+    for(const overrides of [[], [{target: {node: '1', input: 'text'}, value: 42}]]) {
+        const catalog = catalogConfig.assert({...base, overrides});
+        const graph = validateGraph(source, catalog);
+        assert.equal(selectOutput(graph, catalog, enumDefinitions), '1');
+        assert.equal(applyCoordinate(graph, catalog.variations, [1])['1']!.inputs['text'], 'B');
+        catalog.variations[0]!.values[1]!.value = 'missing';
+        assert.throws(() => selectOutput(graph, catalog, enumDefinitions), /Incompatible/);
+    }
+});
+
+const modelSource: ApiGraph = {'60:44': {class_type: 'Loader', inputs: {unet_name: 'Anima/{{model}}.safetensors'}}};
+const modelDefinitions: NodeDefinitions = {Loader: {output_node: true, input: {required: {
+    unet_name: [['Anima/base.safetensors', 'Anima/tuned.safetensors']],
+}}}};
+const modelCatalog = {...base, variations: [
+    {name: 'Model', target: {node: '60:44', input: 'unet_name', placeholder: '{{model}}'}, values: ['base', 'tuned']},
+]};
+
+test('enum validation accepts complete placeholder paths rather than candidate fragments', () => {
+    const catalog = catalogConfig.assert(modelCatalog);
+    const graph = validateGraph(modelSource, catalog);
+    assert.equal(selectOutput(graph, catalog, modelDefinitions), '60:44');
+    assert.equal(applyCoordinate(graph, catalog.variations, [1])['60:44']!.inputs['unet_name'], 'Anima/tuned.safetensors');
+});
+
+test('enum validation rejects an invalid final placeholder path', () => {
+    const catalog = catalogConfig.assert(modelCatalog);
+    catalog.variations[0]!.values[1]!.value = 'missing';
+    assert.throws(() => selectOutput(validateGraph(modelSource, catalog), catalog, modelDefinitions),
+        /Incompatible.*Anima\/missing\.safetensors/);
+});
+
+test('enum validation combines every placeholder on an overridden input', () => {
+    const catalog = catalogConfig.assert({...modelCatalog,
+        overrides: [{target: {node: '60:44', input: 'unet_name'}, value: '{{family}}/{{model}}-{{model}}.safetensors'}],
+        variations: [...modelCatalog.variations,
+            {name: 'Family', target: {node: '60:44', input: 'unet_name', placeholder: '{{family}}'}, values: ['Anima', 'Other']},
+        ],
+    });
+    const enumDefinitions: NodeDefinitions = {Loader: {output_node: true, input: {required: {unet_name: [[
+        'Anima/base-base.safetensors', 'Other/base-base.safetensors',
+        'Anima/tuned-tuned.safetensors', 'Other/tuned-tuned.safetensors',
+    ]]}}}};
+    const graph = validateGraph(modelSource, catalog);
+    assert.equal(selectOutput(graph, catalog, enumDefinitions), '60:44');
+    assert.equal(applyCoordinate(graph, catalog.variations, [1, 0])['60:44']!.inputs['unet_name'], 'Anima/tuned-tuned.safetensors');
+    enumDefinitions['Loader']!.input!.required!['unet_name'] = [['Anima/base-base.safetensors', 'Other/tuned-tuned.safetensors']];
+    assert.throws(() => selectOutput(graph, catalog, enumDefinitions), /Incompatible.*Other\/base-base\.safetensors/);
+});
+
+test('enum validation does not recursively replace placeholder text in candidates', () => {
+    const catalog = catalogConfig.assert({...modelCatalog,
+        overrides: [{target: {node: '60:44', input: 'unet_name'}, value: '{{family}}/{{model}}.safetensors'}],
+        variations: [
+            {name: 'Family', target: {node: '60:44', input: 'unet_name', placeholder: '{{family}}'}, values: ['{{model}}']},
+            {...modelCatalog.variations[0], values: ['base']},
+        ],
+    });
+    const enumDefinitions: NodeDefinitions = {Loader: {output_node: true, input: {required: {
+        unet_name: [['{{model}}/base.safetensors']],
+    }}}};
+    const graph = validateGraph(modelSource, catalog);
+    assert.equal(selectOutput(graph, catalog, enumDefinitions), '60:44');
+    assert.equal(applyCoordinate(graph, catalog.variations, [0, 0])['60:44']!.inputs['unet_name'], '{{model}}/base.safetensors');
 });
 
 test('fingerprints include overrides and source values, and normalize candidate notation', () => {

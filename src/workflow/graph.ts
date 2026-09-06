@@ -1,7 +1,8 @@
 import {type} from 'arktype';
 
-import {type CatalogConfig, type JsonValue, jsonValue} from '../config/schema.ts';
-import {placeholderSpans, type TextSpan, validateSpans} from './text.ts';
+import {type CatalogConfig, type JsonValue, jsonValue, type Variation} from '../config/schema.ts';
+import {placeholderSpans, replaceSpans, type TextSpan, validateSpans} from './text.ts';
+import {coordinates} from './variations.ts';
 
 export const apiGraph = type({'[string]': {class_type: 'string > 0', inputs: type({'[string]': jsonValue})}});
 export type ApiGraph = typeof apiGraph.infer;
@@ -45,6 +46,13 @@ export function validateGraph(data: unknown, catalog: CatalogConfig): ApiGraph {
 }
 
 export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definitions: NodeDefinitions): string {
+    const targets = new Map<string, Variation[]>();
+    for(const variation of catalog.variations) {
+        const key = JSON.stringify([variation.target.node, variation.target.input]);
+        const group = targets.get(key) ?? [];
+        group.push(variation);
+        targets.set(key, group);
+    }
     const outputs: string[] = [];
     for(const [id, node] of Object.entries(graph)) {
         if(!Object.hasOwn(definitions, node.class_type)) throw new Error(`Node ${id}: unavailable node class ${node.class_type}`);
@@ -54,8 +62,7 @@ export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definition
             if(!Object.hasOwn(node.inputs, required)) throw new Error(`Node ${id}: missing required input ${required}`);
         }
         for(const [input, value] of Object.entries(node.inputs)) {
-            const replaced = catalog.variations.some((v) => v.target.node === id && v.target.input === input && !v.target.placeholder);
-            if(replaced) continue;
+            if(targets.has(JSON.stringify([id, input]))) continue;
             const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
             validateInput(value, descriptor, graph, `${id}.inputs.${input}`, definitions);
         }
@@ -65,19 +72,36 @@ export function selectOutput(graph: ApiGraph, catalog: CatalogConfig, definition
     } else if(outputs.length !== 1) {
         throw new Error(`Workflow has ${outputs.length} output nodes; specify output_node when multiple exist.`);
     }
-    for(const variation of catalog.variations) {
-        const {node, input} = variation.target;
+    for(const variations of targets.values()) {
+        const {node, input, placeholder} = variations[0]!.target;
         const definition = definitions[graph[node]!.class_type]!;
         const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
         if(typeof descriptor === 'undefined') throw new Error(`Node ${node}: input ${input} is not declared by the server`);
-        for(const candidate of variation.values) validateInput(candidate.value, descriptor, graph, `${node}.inputs.${input}`, definitions);
+        const target = `${node}.inputs.${input}`;
+        if(!placeholder) {
+            for(const candidate of variations[0]!.values) validateInput(candidate.value, descriptor, graph, target, definitions);
+            continue;
+        }
+        const text = graph[node]!.inputs[input];
+        if(typeof text !== 'string') throw new Error('Text placeholders require string inputs and values');
+        const spans = variations.map((variation) => placeholderSpans(text, variation.target.placeholder!));
+        // Only variations sharing this input affect its final value. Resolve all of
+        // them against the baseline, never against previously inserted text.
+        for(const coordinate of coordinates(variations)) {
+            const replacements: (TextSpan & {value: string})[] = [];
+            for(const [axis, variation] of variations.entries()) {
+                const value = variation.values[coordinate[axis]!]!.value;
+                if(typeof value !== 'string') throw new Error('Text placeholders require string inputs and values');
+                for(const span of spans[axis]!) replacements.push({...span, value});
+            }
+            validateInput(replaceSpans(text, replacements), descriptor, graph, target, definitions);
+        }
     }
     for(const override of catalog.overrides ?? []) {
         const {node, input} = override.target;
         const definition = definitions[graph[node]!.class_type]!;
         const descriptor = definition.input?.required?.[input] ?? definition.input?.optional?.[input];
         if(typeof descriptor === 'undefined') throw new Error(`Node ${node}: input ${input} is not declared by the server`);
-        validateInput(override.value, descriptor, graph, `${node}.inputs.${input}`, definitions);
     }
     return catalog.output_node ?? outputs[0]!;
 }

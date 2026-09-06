@@ -2,7 +2,7 @@ import {orderedEntries} from './catalog.js';
 
 export function createView(catalog) {
     return {
-        mode: 'gallery', rowAxis: 0, columnAxis: catalog.variations.length > 1 ? 1 : -1,
+        mode: 'gallery', columnAxis: 0, rowAxis: catalog.variations.length > 1 ? 1 : -1,
         fixed: catalog.variations.map(() => 0),
         allowed: catalog.variations.map((variation) => variation.values.map((_, index) => index)),
         page: 0, rowPage: 0, columnPage: 0,
@@ -18,7 +18,7 @@ function pageOf(values, page, size) {
 /** A bounded render plan independent of DOM presentation. */
 export function planView(catalog, state) {
     const allowed = state.allowed.map((indices) => new Set(indices));
-    if(state.mode === 'gallery' || state.columnAxis < 0) {
+    if(state.mode === 'gallery' || state.rowAxis < 0 || state.columnAxis < 0) {
         const entries = orderedEntries(catalog).filter((entry) => entry.coordinate.every((value, axis) => allowed[axis].has(value)
             && (axis === state.rowAxis || axis === state.columnAxis || value === state.fixed[axis])));
         const page = pageOf(entries, state.page, 48);
