@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import {generateCatalog} from '../catalog/generate.ts';
 import {parseOptions} from '../cli/options.ts';
 
 const controller = new AbortController();
@@ -7,7 +6,15 @@ const interrupt = () => { controller.abort(new Error('Interrupted; a submitted C
 process.once('SIGINT', interrupt);
 process.once('SIGTERM', interrupt);
 try {
-    await generateCatalog(parseOptions(process.argv.slice(2)), controller.signal, (message) => { console.log(message); });
+    const options = parseOptions(process.argv.slice(2));
+    if(options.command === 'web') {
+        const {assembleSite} = await import('../web/site.ts');
+        await assembleSite(options, controller.signal);
+        console.log(`Indexed ${options.catalogs.length} catalogs in ${options.root}`);
+    } else {
+        const {generateCatalog} = await import('../catalog/generate.ts');
+        await generateCatalog(options, controller.signal, (message) => { console.log(message); });
+    }
 } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

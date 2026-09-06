@@ -9,10 +9,10 @@ Use Node.js and pnpm with the build/test setup from the TypeScript Node template
 ```sh
 pnpm install
 pnpm build
-pnpm start -- -b backend.toml catalog.toml output --gen-info
+pnpm start generate -b backend.toml catalog.toml output --gen-info
 ```
 
-The installed command is `make-comfy-catalog`. The CLI runs compiled TypeScript from `dist/`; `src-old/` is not part of the runtime. Viewer implementation is outside this revision's scope.
+The installed command is `comfy-catalog`, with explicit `generate` and `web` subcommands. This replaces the former `make-comfy-catalog` interface. The CLI runs compiled TypeScript from `dist/`; `src-old/` is not part of the runtime.
 
 ## Configuration
 
@@ -117,15 +117,65 @@ Generation stops on the first failure. Errors include the coordinate and, when a
 Downloaded PNGs go through pngquant at quality `85–95`. The optimized image is used only when it satisfies the minimum quality and is smaller; otherwise the original is retained. Dimensions and transparency support are preserved. Other image formats are decoded and encoded as PNG first.
 
 ```sh
-pnpm start -- -b backend.toml catalog.toml output --png-quality 75-90
-pnpm start -- -b backend.toml catalog.toml output --no-png-optimization
+pnpm start generate -b backend.toml catalog.toml output --png-quality 75-90
+pnpm start generate -b backend.toml catalog.toml output --no-png-optimization
 ```
 
 The quality range is an optimizer score, not a percentage of perceived fidelity. In the 512×512 live sample, `85–95` retained the original; `75–90` reduced 356,369 bytes to 125,490 bytes with visible dithering. Evaluate the setting for your images. Use `--force` when changing the setting for already completed entries.
 
+## Static catalog website
+
+Generate each catalog directly inside the directory you intend to serve, then index its generated metadata:
+
+```powershell
+comfy-catalog generate -b backend.toml catalog-a.toml D:/catalog-site/catalogs/a
+comfy-catalog generate -b backend.toml catalog-b.toml D:/catalog-site/catalogs/b
+comfy-catalog web --root D:/catalog-site D:/catalog-site/catalogs/a/metadata.json D:/catalog-site/catalogs/b/metadata.json
+```
+
+The site root can be anywhere on disk, including outside this project. All CLI paths are absolute or relative to the working directory. Inputs to `web` are generated `metadata.json` files, not catalog TOML configurations. For development, use `pnpm start web ...` or `pnpm start generate ...`.
+
+```text
+<site-root>/
+  index.html
+  assets/
+    app.js
+    catalog.js
+    style.css
+  catalogs.json
+  catalogs/
+    a/
+      metadata.json
+      0.0.png
+      ...
+    b/
+      metadata.json
+      ...
+```
+
+`web` installs the shared viewer files and writes an ordered catalog list. It does **not copy or rewrite catalog images, metadata, or workflow sidecars**. Existing unrelated files remain in place. Byte-identical shared files are not rewritten. Rerunning `web` replaces the complete catalog list; omitted catalogs stay on disk. Resume generation in a listed directory and reload the viewer to see completed entries without rerunning `web`. Rerun `web` when changing catalog membership, order, names, or shared viewer resources.
+
+Every input and referenced file must resolve inside the served root. The root's `index.html`, `assets/`, and `catalogs.json` are reserved for the viewer. Generate into a dedicated catalog directory; generation refuses a viewer root containing `catalogs.json`, and `--reset` applies to the selected catalog directory. Keep backend/configuration files and source workflows outside the served root. Generated workflow sidecars inside it are served along with other output files.
+
+Serve the directory using an ordinary static HTTP(S) host. No application backend, ComfyUI connection, frontend build, CDN, or image optimizer is required for website assembly or browsing. Opening the HTML directly with a `file:` URL is unsupported. Relative URLs allow deployment beneath a hosting subdirectory and relocation of the complete site.
+
+The viewer provides a catalog selector and a responsive gallery with all completed entries and batch images, numeric coordinate ordering, variation captions, categories, and full-size image links. Partial and empty catalogs are supported. Images load lazily; large catalogs still create all selected-catalog gallery elements. Matrix views, filtering, comparison tools, and live polling are outside this minimal version.
+
+Shared resources are maintained directly in `static/index.html` and `static/assets/` and included in the npm package. `static/public/` is an optional generated site location, ignored by Git and excluded from packaging. Only the catalog list needs serialization:
+
+```json
+{
+  "version": 1,
+  "catalogs": [
+    {"name": "Catalog A", "metadata": "catalogs/a/metadata.json"},
+    {"name": "Catalog B", "metadata": "catalogs/b/metadata.json"}
+  ]
+}
+```
+
 ## Options and development
 
-Run `pnpm start -- --help` for all options: `--backend`, `--force`, `--reset`, `--gen-info`, `--png-quality`, and `--no-png-optimization`.
+Run `pnpm start generate --help` for generation options and `pnpm start web --help` for site assembly options.
 
 ```sh
 pnpm lint

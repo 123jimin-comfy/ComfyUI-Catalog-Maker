@@ -4,16 +4,16 @@
   "version": "0.0.1",
   "description": "A tool for creating and updating sample images for T2I (text-to-image) models.",
   "bin": {
-    "make-comfy-catalog": "dist/bin/main.js"
+    "comfy-catalog": "dist/bin/main.js"
   },
   "scripts": {
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "prepare": "pnpm build",
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "lint": "eslint src/",
+    "lint": "eslint src/ static/assets/ tests/",
     "pretest": "pnpm build",
-    "test": "node --test \"dist/**/*.spec.js\"",
+    "test": "node --test \"dist/**/*.spec.js\" \"tests/**/*.spec.mjs\"",
     "start": "node dist/bin/main.js"
   },
   "keywords": [],
@@ -30,7 +30,9 @@
   },
   "files": [
     "dist",
-    "!dist/**/*.spec.*"
+    "!dist/**/*.spec.*",
+    "static/index.html",
+    "static/assets"
   ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",

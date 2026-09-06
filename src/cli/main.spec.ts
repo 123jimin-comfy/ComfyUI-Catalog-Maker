@@ -87,7 +87,7 @@ async function fixture(t: TestContext, options: {batch?: number; fail?: boolean;
     const catalogText = 'id = "test"\nname = "Test"\nworkflow = "workflow.json"\n[[variations]]\nname = "CFG"\n[variations.target]\nnode = "60:19"\ninput = "cfg"\n[[variations.values]]\nvalue = 4\nlabel = "Four"\ncategory = "Group"\n[[variations.values]]\nvalue = 5\n';
     await writeFile(path.join(root, 'catalog.toml'), catalogText);
     async function run(...extra: string[]) {
-        return await invoke(['-b', path.join(root, 'backend.toml'), path.join(root, 'catalog.toml'), output, '--no-png-optimization', ...extra]);
+        return await invoke(['generate', '-b', path.join(root, 'backend.toml'), path.join(root, 'catalog.toml'), output, '--no-png-optimization', ...extra]);
     }
     return {root, output, prompts, png, run, catalogText};
 }
@@ -107,7 +107,44 @@ async function invoke(args: string[]) {
 test('help works without configuration or optimizer', async () => {
     const result = await invoke(['--help']);
     assert.equal(result.code, 0, result.stderr);
-    assert.match(result.stdout, /--png-quality/);
+    assert.match(result.stdout, /generate/);
+    assert.match(result.stdout, /web/);
+    const generation = await invoke(['generate', '--help']);
+    assert.equal(generation.code, 0, generation.stderr);
+    assert.match(generation.stdout, /--png-quality/);
+    const web = await invoke(['web', '--help']);
+    assert.equal(web.code, 0, web.stderr);
+    assert.match(web.stdout, /--root/);
+});
+
+test('generation refuses the viewer root without changing its files', async (t) => {
+    const f = await fixture(t);
+    await f.run();
+    const index = JSON.stringify({version: 1, catalogs: []});
+    await writeFile(path.join(f.output, 'catalogs.json'), index);
+    await writeFile(path.join(f.output, 'index.html'), '<html>Viewer</html>');
+    const result = await f.run('--reset');
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /viewer root|site root/i);
+    assert.equal(await readFile(path.join(f.output, 'catalogs.json'), 'utf8'), index);
+    assert.ok((await readdir(f.output)).includes('0.0.png'));
+    assert.equal(f.prompts.length, 2);
+});
+
+test('resuming and resetting a catalog leaves its parent viewer and siblings unchanged', async (t) => {
+    const f = await fixture(t);
+    assert.equal((await f.run()).code, 0);
+    const index = JSON.stringify({version: 1, catalogs: [{name: 'Test', metadata: 'output/metadata.json'}]});
+    await writeFile(path.join(f.root, 'catalogs.json'), index);
+    await writeFile(path.join(f.root, 'index.html'), '<html>Viewer</html>');
+    await writeFile(path.join(f.root, 'sibling.txt'), 'Keep');
+    assert.equal((await f.run()).code, 0);
+    assert.equal(f.prompts.length, 2);
+    assert.equal((await f.run('--reset')).code, 0);
+    assert.equal(f.prompts.length, 4);
+    assert.equal(await readFile(path.join(f.root, 'catalogs.json'), 'utf8'), index);
+    assert.equal(await readFile(path.join(f.root, 'index.html'), 'utf8'), '<html>Viewer</html>');
+    assert.equal(await readFile(path.join(f.root, 'sibling.txt'), 'utf8'), 'Keep');
 });
 
 test('generates flat batch outputs and sidecars, then resumes without submission', async (t) => {
@@ -292,7 +329,7 @@ values = ["A", "C/B"]
 test('missing optimizer fails before reset', async (t) => {
     const f = await fixture(t);
     await f.run();
-    const child = spawn(process.execPath, [executable, '-b', path.join(f.root, 'backend.toml'), path.join(f.root, 'catalog.toml'), f.output, '--reset'], {windowsHide: true, env: {...process.env, PATH: ''}});
+    const child = spawn(process.execPath, [executable, 'generate', '-b', path.join(f.root, 'backend.toml'), path.join(f.root, 'catalog.toml'), f.output, '--reset'], {windowsHide: true, env: {...process.env, PATH: ''}});
     let stderr = '';
     child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
     child.stdout.resume();

@@ -19,6 +19,19 @@ export const metadataSchema = type({
 export type Metadata = typeof metadataSchema.infer;
 export type CompletedEntry = typeof completedEntry.infer;
 
+export function imageName(coordinate: readonly number[], index: number): string { return `${coordinate.join('-')}.${index}.png`; }
+export function workflowName(coordinate: readonly number[]): string { return `${coordinate.join('-')}.workflow.json`; }
+
+export function validateEntries(metadata: Metadata): void {
+    for(const [key, entry] of Object.entries(metadata.entries)) {
+        if(entry.coordinate.length !== metadata.variations.length || key !== entry.coordinate.join('-') || entry.coordinate.some((index, axis) => index >= metadata.variations[axis]!.values.length)) throw new Error(`Invalid metadata coordinate ${key}`);
+        for(const [index, image] of entry.images.entries()) {
+            if(image.index !== index || image.file !== imageName(entry.coordinate, index)) throw new Error(`Invalid metadata image for ${key}`);
+        }
+        if(entry.workflow && entry.workflow !== workflowName(entry.coordinate)) throw new Error(`Invalid metadata workflow for ${key}`);
+    }
+}
+
 function canonical(data: unknown): string {
     if(Array.isArray(data)) return `[${data.map(canonical).join(',')}]`;
     if(data !== null && typeof data === 'object') {

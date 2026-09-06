@@ -2,10 +2,9 @@ import {randomUUID} from 'node:crypto';
 import {lstat, mkdir, readdir, readFile, realpath, rename, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
-import {type CompletedEntry, type Metadata, metadataSchema} from './metadata.ts';
+import {type CompletedEntry, type Metadata, metadataSchema, validateEntries} from './metadata.ts';
 
-export function imageName(coordinate: readonly number[], index: number): string { return `${coordinate.join('-')}.${index}.png`; }
-export function workflowName(coordinate: readonly number[]): string { return `${coordinate.join('-')}.workflow.json`; }
+export {imageName, workflowName} from './metadata.ts';
 
 function missing(error: unknown): boolean { return error instanceof Error && 'code' in error && error.code === 'ENOENT'; }
 
@@ -34,6 +33,10 @@ export async function prepareOutput(directory: string, expected: Metadata, reset
         if((await lstat(absolute)).isSymbolicLink()) throw new Error('Catalog output directory cannot be a symbolic link');
     } catch (error) { if(!missing(error)) throw error; }
     await mkdir(absolute, {recursive: true});
+    try {
+        await lstat(path.join(absolute, 'catalogs.json'));
+        throw new Error('Cannot generate into a viewer root; choose a dedicated catalog directory inside the site root');
+    } catch (error) { if(!missing(error)) throw error; }
     if(reset) {
         const resolved = await realpath(absolute);
         for(const source of sourcePaths) {
@@ -59,16 +62,6 @@ export async function prepareOutput(directory: string, expected: Metadata, reset
     const result = previous ?? expected;
     await saveMetadata(absolute, result);
     return result;
-}
-
-function validateEntries(metadata: Metadata): void {
-    for(const [key, entry] of Object.entries(metadata.entries)) {
-        if(entry.coordinate.length !== metadata.variations.length || key !== entry.coordinate.join('-') || entry.coordinate.some((index, axis) => index >= metadata.variations[axis]!.values.length)) throw new Error(`Invalid metadata coordinate ${key}`);
-        for(const [index, image] of entry.images.entries()) {
-            if(image.index !== index || image.file !== imageName(entry.coordinate, index)) throw new Error(`Invalid metadata image for ${key}`);
-        }
-        if(entry.workflow && entry.workflow !== workflowName(entry.coordinate)) throw new Error(`Invalid metadata workflow for ${key}`);
-    }
 }
 
 export async function isComplete(directory: string, entry: CompletedEntry | undefined, genInfo: boolean): Promise<boolean> {

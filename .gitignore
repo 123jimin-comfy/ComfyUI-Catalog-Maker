@@ -8,3 +8,5 @@ node_modules/
 /local/
 /dist/
 /tsconfig.tsbuildinfo
+/public/
+/static/public/
