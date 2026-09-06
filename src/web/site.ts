@@ -7,7 +7,7 @@ import {metadataSchema, validateEntries} from '../catalog/metadata.ts';
 import type {WebOptions} from '../cli/options.ts';
 
 const sourceRoot = fileURLToPath(new URL('../../static/', import.meta.url));
-const resources = ['index.html', 'assets/app.js', 'assets/catalog.js', 'assets/style.css'] as const;
+const resources = ['index.html', 'assets/app.js', 'assets/catalog.js', 'assets/view.js', 'assets/style.css'] as const;
 
 function missing(error: unknown): boolean { return error instanceof Error && 'code' in error && error.code === 'ENOENT'; }
 

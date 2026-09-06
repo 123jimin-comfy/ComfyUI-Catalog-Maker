@@ -11,21 +11,24 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">▦</span> ComfyUI Catalog</a>
-    <div class="catalog-picker">
-      <label for="catalog-select">Catalog</label>
-      <select id="catalog-select" disabled><option>Loading catalogs…</option></select>
-    </div>
+    <label class="catalog-picker">Catalog <select id="catalog-select" disabled><option>Loading catalogs…</option></select></label>
+    <details id="shortcuts"><summary>Keys</summary><p>Arrows: focus images · Enter: open · Esc: close<br>In image viewer: ← / → images, ↑ / ↓ batch<br>[ / ]: previous / next row or column in single-axis views<br>?: shortcuts</p></details>
   </header>
   <main>
-    <section class="catalog-heading" aria-labelledby="catalog-title">
-      <p class="eyebrow">CATALOG EXPLORER</p>
-      <h1 id="catalog-title">Your generated results</h1>
-      <p id="catalog-summary" class="summary"></p>
-    </section>
+    <div id="controls" class="toolbar"></div>
+    <details id="filters" hidden><summary>Filter / compare</summary><p class="hint">Choose values to compare aligned rows or columns in Matrix view.</p><div id="filter-fields"></div></details>
+    <div id="context" class="context"></div>
     <p id="status" role="status" aria-live="polite">Loading catalogs…</p>
-    <div id="gallery" class="gallery" aria-label="Catalog entries"></div>
+    <nav id="paging" class="toolbar" aria-label="Result pages"></nav>
+    <div id="gallery" aria-label="Catalog entries"></div>
     <noscript>Enable JavaScript to browse the catalog gallery.</noscript>
   </main>
+  <dialog id="image-viewer" aria-label="Image viewer">
+    <div class="viewer-toolbar"><button id="previous-image" aria-label="Previous image">←</button><button id="next-image" aria-label="Next image">→</button><span id="image-position"></span><button id="close-image">Close</button></div>
+    <div class="full-image"><img id="full-image" alt=""><p id="full-error" role="status" hidden>Image unavailable</p></div>
+    <p id="image-caption"></p>
+    <div id="batch-controls" class="toolbar"></div>
+    <details id="image-details"><summary>Parameters</summary><dl id="parameter-values"></dl></details>
+  </dialog>
 </body>
 </html>

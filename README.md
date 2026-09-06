@@ -145,6 +145,7 @@ The site root can be anywhere on disk, including outside this project. All CLI p
   assets/
     app.js
     catalog.js
+    view.js
     style.css
   catalogs.json
   catalogs/
@@ -163,7 +164,11 @@ Every input and referenced file must resolve inside the served root. The root's 
 
 Serve the directory using an ordinary static HTTP(S) host. No application backend, ComfyUI connection, frontend build, CDN, or image optimizer is required for website assembly or browsing. Opening the HTML directly with a `file:` URL is unsupported. Relative URLs allow deployment beneath a hosting subdirectory and relocation of the complete site.
 
-The viewer provides a catalog selector and a responsive gallery with all completed entries and batch images, numeric coordinate ordering, variation captions, categories, and full-size image links. Partial and empty catalogs are supported. Images load lazily; large catalogs still create all selected-catalog gallery elements. Matrix views, filtering, comparison tools, and live polling are outside this minimal version.
+The viewer provides compact mobile and desktop browsing with gallery, matrix, single-row, and single-column views. Choose or swap axes, fix additional dimensions, and use **Filter / compare** to select candidate values or categories for aligned comparisons. Shared headers and compact captions identify parameters; the image viewer exposes full values and categories. Catalog names have no order numbers or completion counters.
+
+Click an image to open it uncropped on the same page. Close or press Escape to return to your browsing position. Batch controls expose every image in recorded order. Desktop arrow keys navigate focused gallery images; Enter opens one. In the image viewer, left/right changes entries and up/down changes batch images. Bracket keys move between rows or columns in single-axis views; **Keys** or `?` shows the reference.
+
+Images load lazily, with at most 48 image cells per page (matrix pages contain up to eight rows and six columns). Missing matrix results retain their positions. Empty, invalid, and broken-image states are supported. Selected-catalog metadata is still loaded in memory. Browser modules run directly without a frontend build step or third-party runtime dependencies.
 
 Shared resources are maintained directly in `static/index.html` and `static/assets/` and included in the npm package. `static/public/` is an optional generated site location, ignored by Git and excluded from packaging. Only the catalog list needs serialization:
 
@@ -188,6 +193,8 @@ pnpm test
 pnpm build:watch
 pnpm clean
 ```
+
+Optional browser regression checks use an existing Playwright installation: set `PLAYWRIGHT_MODULE` to its absolute `index.mjs` path and run `node --test tests/viewer-browser.spec.mjs`. The fixture serves 20 synthetic 512×512 images and checks mobile and desktop interactions without ComfyUI. Set `VIEWER_SCREENSHOT` to an output PNG path to capture the mobile matrix.
 
 Tests use Node's built-in runner and a controlled local ComfyUI server; they never contact the configured live backend. Real optimizer tests run when pngquant is on PATH; CI installs it. ArkType owns runtime validation, the existing ComfyUI client is isolated behind an adapter, and Sharp handles image decoding and PNG conversion.
 
