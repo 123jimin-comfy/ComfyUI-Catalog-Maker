@@ -110,11 +110,13 @@ Metadata records the schema version, generation-input fingerprint, catalog ident
 
 Changed catalog settings or workflow contents require `--force` or `--reset`; changing image optimization options alone does not invalidate existing entries. `--force` regenerates entries. `--reset` deletes the chosen output directory's contents; it refuses to delete input configs or the source workflow. Invalid metadata requires a reset.
 
-Generation stops on the first failure. Errors include the coordinate and, when available, prompt ID and node details. Submitted prompts are never automatically resubmitted. The CLI polls that prompt's history until completion or failure; Ctrl+C stops local work but does not cancel the server's job.
+Generation logs include the current coordinate's position in the full catalog, named variation positions (one-based), prompt ID, output node, and saved image filenames. Skipped coordinates also count toward progress.
+
+Generation stops on the first failure. Errors include the coordinate and, when available, prompt ID and node details. Submitted prompts are never automatically resubmitted. The CLI polls that prompt's history for file outputs. For `SaveImageWebsocket`, it connects before submission and collects images for the selected output node through execution completion, excluding other nodes' previews. Ctrl+C stops local work but does not cancel the server's job.
 
 ## PNG optimization
 
-Downloaded PNGs go through pngquant at quality `85–95`. The optimized image is used only when it satisfies the minimum quality and is smaller; otherwise the original is retained. Dimensions and transparency support are preserved. Other image formats are decoded and encoded as PNG first.
+Downloaded PNGs go through pngquant at quality `65–80`. The optimized image is used only when it satisfies the minimum quality and is smaller; otherwise the original is retained. Dimensions and transparency support are preserved. Other image formats are decoded and encoded as PNG first.
 
 ```sh
 pnpm start generate -b backend.toml catalog.toml output --png-quality 75-90

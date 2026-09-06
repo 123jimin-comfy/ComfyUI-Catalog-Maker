@@ -32,7 +32,13 @@ test('failed batch is incomplete and resume removes stale images from that entry
         },
     };
     const signal = new AbortController().signal;
-    await generateCatalog(options, signal, () => {}, dependencies);
+    const logs: string[] = [];
+    await generateCatalog(options, signal, (message) => { logs.push(message); }, dependencies);
+    assert.ok(logs.includes('Generating 0 (1 / 1): Value [1/1]'));
+    assert.ok(logs.includes('Saved 0.2.png (1 / 1): image 3'));
+    assert.ok(logs.includes('Completed 0 (1 / 1): 3 image(s)'));
+    await generateCatalog(options, signal, (message) => { logs.push(message); }, dependencies);
+    assert.ok(logs.includes('Skipping 0 (1 / 1): Value [1/1]'));
     fail = true;
     converted = 0;
     await assert.rejects(generateCatalog({...options, force: true}, signal, () => {}, dependencies), /image conversion failed/);
@@ -43,5 +49,5 @@ test('failed batch is incomplete and resume removes stale images from that entry
     batch = 1;
     await generateCatalog(options, signal, () => {}, dependencies);
     assert.deepEqual((await readdir(output)).sort(), ['0.0.png', 'metadata.json']);
-    assert.equal(closed, 3);
+    assert.equal(closed, 4);
 });

@@ -26,21 +26,27 @@ export async function generateCatalog(options: RunOptions, signal: AbortSignal, 
         signal.throwIfAborted();
         const directory = path.resolve(options.output);
         const metadata = await prepareOutput(directory, newMetadata(loaded.catalog, loaded.sourceGraph, outputNode), options.reset, options.force, loaded.sourcePaths);
+        const total = loaded.catalog.variations.reduce((count, variation) => count * variation.values.length, 1);
+        let current = 0;
         for(const coordinate of coordinates(loaded.catalog.variations)) {
             signal.throwIfAborted();
             const key = coordinate.join('-');
+            current++;
+            const progress = `(${current} / ${total})`;
+            const variations = loaded.catalog.variations.map((variation, axis) => `${variation.name} [${coordinate[axis]! + 1}/${variation.values.length}]`).join(', ');
             const previous = metadata.entries[key];
             if(!options.force && await isComplete(directory, previous, options.genInfo)) {
-                report(`Skipping ${key}`);
+                report(`Skipping ${key} ${progress}: ${variations}`);
                 continue;
             }
             delete metadata.entries[key];
             await saveMetadata(directory, metadata);
             await clearCoordinateFiles(directory, coordinate);
             try {
-                report(`Generating ${key}`);
+                report(`Generating ${key} ${progress}: ${variations}`);
                 const graph = applyCoordinate(loaded.graph, loaded.catalog.variations, coordinate);
                 const execution = await connection.execute(graph, outputNode);
+                report(`Retrieving ${key} ${progress}: prompt ${execution.promptId}, output node ${outputNode}`);
                 const completed: CompletedEntry = {coordinate, prompt_id: execution.promptId, images: []};
                 let index = 0;
                 for await (const original of execution.images) {
@@ -50,6 +56,7 @@ export async function generateCatalog(options: RunOptions, signal: AbortSignal, 
                     await atomicWrite(directory, file, image);
                     completed.images.push({index, file});
                     index++;
+                    report(`Saved ${file} ${progress}: image ${index}`);
                 }
                 if(index === 0) throw new Error(`Output node ${outputNode} returned no images`);
                 if(options.genInfo) {
@@ -58,6 +65,7 @@ export async function generateCatalog(options: RunOptions, signal: AbortSignal, 
                 }
                 metadata.entries[key] = completed;
                 await saveMetadata(directory, metadata);
+                report(`Completed ${key} ${progress}: ${index} image(s)`);
             } catch (cause) { throw new Error(`Catalog entry ${key}: ${String(cause)}`, {cause}); }
         }
     } finally { connection.close(); }
