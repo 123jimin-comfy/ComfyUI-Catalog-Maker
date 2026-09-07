@@ -8,7 +8,7 @@ export default [
         languageOptions: {
             globals: {
                 document: 'readonly', location: 'readonly', fetch: 'readonly',
-                URL: 'readonly', AbortController: 'readonly',
+                URL: 'readonly', AbortController: 'readonly', IntersectionObserver: 'readonly',
             },
         },
     },

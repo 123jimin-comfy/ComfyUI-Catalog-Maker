@@ -9,17 +9,15 @@ function fixture(sizes = [12, 15, 2]) {
     }};
 }
 
-test('matrix pages bound cells, preserve alignment and represent missing combinations', () => {
+test('matrix retains all coordinates, alignment and missing combinations', () => {
     const catalog = fixture();
     const state = createView(catalog);
     state.mode = 'matrix';
     const view = planView(catalog, state);
-    assert.ok(view.cells.length <= 48);
+    assert.deepEqual(view.cells.map((cell) => cell.coordinate), Array.from({length: 15}, (_, row) => Array.from({length: 12}, (_, column) => [column, row, 0])).flat());
     assert.deepEqual(view.cells[0].coordinate, [0, 0, 0]);
     assert.equal(view.cells[0].entry.images.length, 2);
     assert.equal(view.cells[1].entry, void 0);
-    state.columnPage = 1;
-    assert.equal(planView(catalog, state).columns[0], 6);
 });
 
 test('filtered comparisons retain numeric order, chosen axes and fixed dimensions', () => {
@@ -39,23 +37,20 @@ test('single row and column respect selected values and empty filters', () => {
     const state = createView(catalog);
     state.mode = 'row';
     state.fixed[1] = 10;
-    assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), Array.from({length: 6}, (_, column) => [column, 10, 0]));
+    assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), Array.from({length: 12}, (_, column) => [column, 10, 0]));
     state.mode = 'column';
     state.fixed[0] = 9;
-    assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), Array.from({length: 8}, (_, row) => [9, row, 0]));
+    assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), Array.from({length: 15}, (_, row) => [9, row, 0]));
     state.allowed[0] = [];
     assert.equal(planView(catalog, state).cells.length, 0);
 });
 
-test('one-dimensional gallery bounds results and retains batch entries', () => {
+test('one-dimensional gallery retains all results and supports filtering', () => {
     const catalog = fixture([100]);
     catalog.entries = Object.fromEntries(Array.from({length: 100}, (_, index) => [String(index), {coordinate: [index], images: [{index: 0, file: `${index}.0.png`}]}]));
     const state = createView(catalog);
-    assert.equal(planView(catalog, state).cells.length, 48);
-    state.page = 2;
-    assert.equal(planView(catalog, state).cells.length, 4);
+    assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), Array.from({length: 100}, (_, index) => [index]));
     state.allowed[0] = [99];
-    state.page = 0;
     assert.deepEqual(planView(catalog, state).cells[0].coordinate, [99]);
     state.mode = 'matrix';
     assert.deepEqual(planView(catalog, state).cells.map((cell) => cell.coordinate), [[99]]);

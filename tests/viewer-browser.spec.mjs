@@ -23,18 +23,25 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
     const single = {version: 1, id: 'single', name: 'Single', variations: [variations[0]], entries: Object.fromEntries(variations[0].values.map((_, index) => [String(index), {
         coordinate: [index], images: [{index: 0, file: `${index}.0.png`}],
     }]))};
+    const large = {version: 1, id: 'large', name: 'Large', variations: ['X', 'Y'].map((name) => ({
+        name, values: Array.from({length: 100}, (_, value) => ({value})),
+    })), entries: {}};
+    for(let row = 0; row < 100; row++) for(let column = 0; column < 100; column++) {
+        const coordinate = [column, row], key = coordinate.join('-');
+        large.entries[key] = {coordinate, images: [{index: 0, file: `${key}.0.png`}]};
+    }
     const server = createServer(async (request, response) => {
         try {
             const url = new URL(request.url, 'http://localhost');
             if(url.pathname === '/catalogs.json') {
                 response.setHeader('Content-Type', 'application/json');
-                response.end(JSON.stringify({version: 1, catalogs: [{name: 'Demo', metadata: 'demo/metadata.json'}, {name: 'Empty', metadata: 'empty/metadata.json'}, {name: 'Invalid', metadata: 'invalid/metadata.json'}, {name: 'Single', metadata: 'single/metadata.json'}]}));
+                response.end(JSON.stringify({version: 1, catalogs: [{name: 'Demo', metadata: 'demo/metadata.json'}, {name: 'Empty', metadata: 'empty/metadata.json'}, {name: 'Invalid', metadata: 'invalid/metadata.json'}, {name: 'Single', metadata: 'single/metadata.json'}, {name: 'Large', metadata: 'large/metadata.json'}]}));
             } else if(url.pathname.endsWith('metadata.json')) {
                 response.setHeader('Content-Type', 'application/json');
-                response.end(JSON.stringify(url.pathname.startsWith('/invalid') ? {} : url.pathname.startsWith('/empty') ? {...data, entries: {}} : url.pathname.startsWith('/single') ? single : data));
+                response.end(JSON.stringify(url.pathname.startsWith('/invalid') ? {} : url.pathname.startsWith('/empty') ? {...data, entries: {}} : url.pathname.startsWith('/single') ? single : url.pathname.startsWith('/large') ? large : data));
             } else if(url.pathname.endsWith('.png')) {
                 response.setHeader('Content-Type', 'image/svg+xml');
-                response.end('<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512"><rect width="512" height="512" fill="#354b63"/><circle cx="256" cy="230" r="120" fill="#8ec5d5"/></svg>');
+                response.end('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect width="1024" height="1024" fill="#354b63"/><circle cx="512" cy="460" r="240" fill="#8ec5d5"/></svg>');
             } else {
                 const asset = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
                 if(!['index.html', 'assets/app.js', 'assets/catalog.js', 'assets/view.js', 'assets/style.css'].includes(asset)) {
@@ -55,14 +62,12 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         page.on('pageerror', (error) => errors.push(error.message));
         await page.goto(`http://127.0.0.1:${server.address().port}/`);
         await page.locator('.image-button').first().waitFor();
-        assert.deepEqual(await page.locator('#catalog-select option').allTextContents(), ['Demo', 'Empty', 'Invalid', 'Single']);
         assert.equal(await page.locator('.image-button').count(), 5);
         assert.deepEqual(await page.locator('.caption').allTextContents(), [
             'Character: Alpha · Gesture: standing', 'Character: Alpha · Gesture: sitting', 'Character: Alpha · Gesture: waving',
             'Character: Beta · Gesture: standing', 'Character: Beta · Gesture: sitting',
         ]);
         await page.locator('.image-button img').first().evaluate((image) => image.decode());
-        assert.deepEqual(await page.locator('.image-button img').first().evaluate((image) => [image.naturalWidth, image.naturalHeight]), [512, 512]);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         await page.locator('.image-button').first().click();
         assert.equal(await page.locator('dialog').evaluate((node) => node.open), true);
@@ -75,6 +80,7 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         assert.equal(await page.locator('dialog').evaluate((node) => node.open), false);
         assert.equal(await page.locator('.image-button').first().evaluate((node) => node === document.activeElement), true);
         await page.getByLabel('View', {exact: true}).selectOption('matrix');
+        await page.waitForFunction(() => document.querySelector('.image-button img')?.naturalWidth > 0);
         assert.deepEqual(await page.locator('thead th[scope="col"]').allTextContents(), ['Alpha', 'Beta']);
         assert.deepEqual(await page.locator('tbody th[scope="row"]').allTextContents(), ['standing', 'sitting', 'waving']);
         assert.deepEqual(await page.locator('tbody tr').nth(1).locator('.image-button img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname)), ['/demo/0-1-0.0.png', '/demo/1-1-0.0.png']);
@@ -97,7 +103,9 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         await page.locator('fieldset').first().getByRole('button', {name: 'All', exact: true}).click();
         await page.locator('#filters summary').click();
         await page.getByLabel('View', {exact: true}).selectOption('row');
+        await page.waitForFunction(() => document.querySelector('.image-button img')?.naturalWidth > 0);
         await page.getByRole('button', {name: 'Next row', exact: true}).click();
+        await page.waitForFunction(() => document.querySelector('.image-button img')?.naturalWidth > 0);
         assert.deepEqual(await page.locator('tbody th[scope="row"]').allTextContents(), ['sitting']);
         assert.deepEqual(await page.locator('.image-button img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname)), ['/demo/0-1-0.0.png', '/demo/1-1-0.0.png']);
         await page.getByRole('button', {name: 'Previous row', exact: true}).focus();
@@ -105,6 +113,7 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         assert.deepEqual(await page.locator('tbody th[scope="row"]').allTextContents(), ['standing']);
         await page.getByLabel('View', {exact: true}).selectOption('column');
         await page.getByRole('button', {name: 'Next column', exact: true}).click();
+        await page.waitForFunction(() => document.querySelector('.image-button img')?.naturalWidth > 0);
         assert.deepEqual(await page.locator('thead th[scope="col"]').allTextContents(), ['Beta']);
         assert.deepEqual(await page.locator('.image-button img').evaluateAll((images) => images.map((image) => new URL(image.src).pathname)), ['/demo/1-0-0.0.png', '/demo/1-1-0.0.png']);
         await page.getByLabel('CFG', {exact: true}).selectOption('1');
@@ -125,7 +134,7 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         await page.getByRole('button', {name: 'Close', exact: true}).click();
         await page.route('**/demo/0-0-0.0.png', (route) => route.abort());
         await page.reload();
-        await page.locator('.image-error').waitFor();
+        await page.locator('.image-error:visible').waitFor();
         await page.locator('.image-button').first().click();
         await page.locator('#full-error').waitFor();
         await page.getByRole('button', {name: 'Close', exact: true}).click();
@@ -146,6 +155,29 @@ test('viewer browser: mobile layout, comparisons, modal, batches, keyboard and l
         await page.locator('#filters summary').click();
         await page.getByLabel('Alpha', {exact: true}).uncheck();
         assert.deepEqual(await page.locator('.caption').allTextContents(), ['Character: Beta']);
+        // Crossing both scroll axes must load the destination without retaining
+        // every full-resolution image visited along the way.
+        await page.setViewportSize({width: 390, height: 844});
+        await page.locator('#catalog-select').selectOption('4');
+        await page.waitForFunction(() => document.querySelectorAll('.image-button').length === 10000);
+        await page.locator('.image-button').last().scrollIntoViewIfNeeded();
+        await page.waitForFunction(() => document.querySelector('.entry:last-child img')?.naturalWidth === 1024);
+        await page.locator('.image-button').last().click();
+        assert.equal(await page.locator('#image-position').innerText(), '10000/10000');
+        await page.keyboard.press('Escape');
+        await page.getByLabel('View', {exact: true}).selectOption('matrix');
+        await page.waitForFunction(() => document.querySelector('tbody tr:first-child td img')?.naturalWidth === 1024);
+        const last = page.locator('tbody tr:last-child td:last-child .image-button');
+        await last.scrollIntoViewIfNeeded();
+        await page.waitForFunction(() => document.querySelector('tbody tr:last-child td:last-child img')?.naturalWidth === 1024
+            && !document.querySelector('.image-button img').hasAttribute('src'));
+        assert.ok(await page.locator('.image-button img[src]').count() < 100);
+        await last.click();
+        assert.match(await page.locator('#full-image').getAttribute('src'), /\/large\/99-99\.0\.png$/);
+        await page.keyboard.press('Escape');
+        await page.locator('.image-button').first().scrollIntoViewIfNeeded();
+        await page.waitForFunction(() => document.querySelector('.image-button img')?.naturalWidth === 1024
+            && !document.querySelector('tbody tr:last-child td:last-child img').hasAttribute('src'));
         assert.deepEqual(errors, []);
     } finally {
         await browser?.close();

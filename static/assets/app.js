@@ -7,6 +7,7 @@ const gallery = byId('gallery');
 const dialog = byId('image-viewer');
 let currentLoad, catalog, metadataURL, state, plan;
 let visibleEntries = [], activeEntry = 0, activeBatch = 0, opener;
+let imageObserver, imageSize = 'medium', labels;
 
 function element(tag, text = '', className = '') {
     const node = document.createElement(tag);
@@ -42,19 +43,12 @@ function showStatus(message, error = false) {
     status.classList.toggle('error', error);
 }
 function labelFor(axis, index) {
-    const values = catalog.variations[axis].values;
-    const text = candidateText(values[index]);
-    // Only repeated/empty labels need an index to stay distinguishable.
-    return !text || values.some((value, other) => other !== index && candidateText(value) === text) ? `${text || '(empty)'} [${index + 1}]` : text;
+    return labels[axis][index];
 }
 function caption(coordinate, axes = catalog.variations.map((_, axis) => axis)) {
     return axes.map((axis) => `${catalog.variations[axis].name}: ${labelFor(axis, coordinate[axis])}`).join(' · ');
 }
-function resetPages() {
-    state.page = state.rowPage = state.columnPage = 0;
-}
 function update() {
-    resetPages();
     renderControls();
     render();
 }
@@ -72,14 +66,18 @@ function moveSlice(delta) {
 function renderControls() {
     const controls = byId('controls');
     controls.replaceChildren();
+    const presentation = element('div', '', 'control-group presentation-controls');
+    const axesGroup = element('div', '', 'control-group axis-controls');
+    const slices = element('div', '', 'control-group slice-controls');
+    controls.append(presentation);
     const axes = catalog.variations.map((variation, axis) => [axis, variation.name]);
     if(axes.length > 1) {
-        controls.append(picker('View', [['gallery', 'Gallery'], ['matrix', 'Matrix'], ['row', 'Row'], ['column', 'Column']], state.mode, (value) => {
+        presentation.append(picker('View', [['gallery', 'Gallery'], ['matrix', 'Matrix'], ['row', 'Row'], ['column', 'Column']], state.mode, (value) => {
             state.mode = value;
             update();
         }));
         for(const [key, other, name] of [['columnAxis', 'rowAxis', 'Columns'], ['rowAxis', 'columnAxis', 'Rows']]) {
-            controls.append(picker(name, axes, state[key], (value) => {
+            axesGroup.append(picker(name, axes, state[key], (value) => {
                 const previous = state[key];
                 state[key] = Number(value);
                 if(state[other] === state[key]) state[other] = previous;
@@ -87,16 +85,22 @@ function renderControls() {
                 renderFilters();
             }));
         }
-        controls.append(button('Swap', () => {
+        axesGroup.append(button('Swap', () => {
             [state.rowAxis, state.columnAxis] = [state.columnAxis, state.rowAxis];
             update();
             renderFilters();
         }, 'Swap axes'));
     }
+    presentation.append(picker('Image size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']], imageSize, (value) => {
+        imageSize = value;
+        gallery.dataset.size = value;
+    }));
+    if(axesGroup.childElementCount) controls.append(axesGroup);
+    controls.append(slices);
     catalog.variations.forEach((variation, axis) => {
         const fixed = axis !== state.rowAxis && axis !== state.columnAxis;
         const slice = (state.mode === 'row' && axis === state.rowAxis) || (state.mode === 'column' && axis === state.columnAxis);
-        if(fixed || slice) controls.append(picker(variation.name, state.allowed[axis].map((index) => [index, labelFor(axis, index)]), state.fixed[axis], (value) => {
+        if(fixed || slice) slices.append(picker(variation.name, state.allowed[axis].map((index) => [index, labelFor(axis, index)]), state.fixed[axis], (value) => {
             state.fixed[axis] = Number(value);
             update();
         }));
@@ -106,7 +110,7 @@ function renderControls() {
         for(const [delta, text] of [[-1, 'Previous'], [1, 'Next']]) {
             const node = button(`${text} ${state.mode}`, () => moveSlice(delta));
             node.disabled = state.allowed[axis][state.allowed[axis].indexOf(state.fixed[axis]) + delta] === void 0;
-            controls.append(node);
+            slices.append(node);
         }
     }
 }
@@ -172,12 +176,18 @@ function renderCell(cell, matrix = false) {
     image.loading = 'lazy';
     image.decoding = 'async';
     image.alt = caption(cell.coordinate);
+    // Reserve space before loading so distant cells do not collapse into the viewport.
+    image.width = image.height = 1024;
+    const error = element('span', 'Image unavailable', 'image-error');
+    error.hidden = true;
     image.addEventListener('error', () => {
+        if(!image.hasAttribute('src')) return;
         image.hidden = true;
-        open.append(element('span', 'Image unavailable', 'image-error'));
-    }, {once: true});
-    image.src = new URL(cell.entry.images[0].file, metadataURL).href;
-    open.append(image);
+        error.hidden = false;
+    });
+    image.dataset.src = new URL(cell.entry.images[0].file, metadataURL).href;
+    open.append(image, error);
+    imageObserver.observe(open);
     card.append(open);
     if(!matrix) card.append(element('p', caption(cell.coordinate, [state.columnAxis, state.rowAxis].filter((axis) => axis >= 0)), 'caption'));
     if(cell.entry.images.length > 1) {
@@ -187,24 +197,23 @@ function renderCell(cell, matrix = false) {
     }
     return card;
 }
-function pagination(label, key, page, pages) {
-    if(pages <= 1) return;
-    const group = element('div', '', 'page-group');
-    const move = (delta) => {
-        state[key] = page + delta;
-        render();
-    };
-    const previous = button('←', () => move(-1), `Previous ${label} page`);
-    const next = button('→', () => move(1), `Next ${label} page`);
-    previous.disabled = page === 0;
-    next.disabled = page + 1 === pages;
-    group.append(previous, element('span', `${label} ${page + 1}/${pages}`), next);
-    byId('paging').append(group);
-}
 function render() {
     plan = planView(catalog, state);
+    imageObserver?.disconnect();
+    imageObserver = new IntersectionObserver((entries) => {
+        for(const {target, isIntersecting} of entries) {
+            const image = target.querySelector('img');
+            if(isIntersecting) {
+                if(!image.hasAttribute('src')) image.src = image.dataset.src;
+            } else {
+                image.removeAttribute('src');
+                image.hidden = false;
+                target.querySelector('.image-error').hidden = true;
+            }
+        }
+    }, {root: plan.rows ? gallery : null, rootMargin: '400px'});
+    gallery.dataset.size = imageSize;
     gallery.replaceChildren();
-    byId('paging').replaceChildren();
     visibleEntries = [];
     const fixedAxes = catalog.variations.map((_, axis) => axis).filter((axis) => axis !== state.rowAxis && axis !== state.columnAxis);
     byId('context').textContent = caption(state.fixed, fixedAxes);
@@ -224,7 +233,8 @@ function render() {
         const body = element('tbody');
         plan.rows.forEach((index, rowIndex) => {
             const tr = element('tr');
-            const th = element('th', labelFor(state.rowAxis, index));
+            const th = element('th');
+            th.append(element('span', labelFor(state.rowAxis, index), 'row-label'));
             th.scope = 'row';
             tr.append(th);
             plan.columns.forEach((_, columnIndex) => {
@@ -237,12 +247,9 @@ function render() {
         });
         table.append(body);
         gallery.append(table);
-        pagination('Rows', 'rowPage', plan.rowPage, plan.rowPages);
-        pagination('Columns', 'columnPage', plan.columnPage, plan.columnPages);
     } else {
         gallery.className = 'gallery';
         for(const cell of plan.cells) gallery.append(renderCell(cell));
-        pagination('Page', 'page', plan.page, plan.pages);
     }
     showStatus(plan.cells.length ? '' : Object.keys(catalog.entries).length ? 'No results for these selections.' : 'No completed images yet. Reload after generation completes an entry.');
 }
@@ -349,9 +356,9 @@ async function loadCatalog(item) {
     if(dialog.open) dialog.close();
     state = null;
     catalog = null;
+    imageObserver?.disconnect();
     gallery.replaceChildren();
     byId('controls').replaceChildren();
-    byId('paging').replaceChildren();
     byId('context').textContent = '';
     byId('filters').hidden = true;
     showStatus('Loading catalog…');
@@ -360,6 +367,12 @@ async function loadCatalog(item) {
         const data = readCatalog(await fetchJSON(item.url, controller.signal));
         if(currentLoad !== controller) return;
         catalog = data;
+        labels = catalog.variations.map(({values}) => {
+            const texts = values.map(candidateText);
+            const counts = new Map();
+            for(const text of texts) counts.set(text, (counts.get(text) ?? 0) + 1);
+            return texts.map((text, index) => !text || counts.get(text) > 1 ? `${text || '(empty)'} [${index + 1}]` : text);
+        });
         metadataURL = item.url;
         state = createView(catalog);
         document.title = `${catalog.name} · ComfyUI Catalog`;
