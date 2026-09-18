@@ -22,7 +22,7 @@
   "packageManager": "pnpm@10.7.1",
   "dependencies": {
     "@stable-canvas/comfyui-client": "^1.5.9",
-    "argparse": "^3.0.1",
+    "argparse": "^3.0.2",
     "toml": "^5.0.0",
     "ws": "^8.21.3",
     "arktype": "2.2.3",
